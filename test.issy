@@ -1,0 +1,11 @@
+input bool req
+state bool grant
+
+formula {
+  assert G ([req] -> F ([grant]))
+}
+
+game Safety from l0 {
+  loc l0 1
+  from l0 to l0 with [grant' = req]
+}

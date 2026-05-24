@@ -1,0 +1,11 @@
+input bool go
+
+formula {
+  assert F go
+}
+
+game Safety from l0 {
+  loc l0 1
+
+  from l0 to l0 with [true]
+}

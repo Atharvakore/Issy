@@ -65,6 +65,7 @@ data SyBo
   -- ^ Loop arena book-keeping
   | SyBoSummary SummarySyBo
   -- ^ Enforcement summary book-keeping
+  deriving (Show)
 
 data SummarySyBo = SummarySyBo
   { metaVars :: [(Symbol, Sort)]
@@ -79,6 +80,7 @@ data SummarySyBo = SummarySyBo
   -- ^ program that archive the sub condition. Note that this should only
   -- contain the constrains that the meta variables do not change
   }
+  deriving (Show)
 
 data LoopSyBo = LoopSyBo
   { loopLoc :: Loc
@@ -91,7 +93,7 @@ data LoopSyBo = LoopSyBo
   , loopPrime :: Symbol
   -- ^ priming of the variables that are kept constant
   }
-
+  deriving (Show)
 -- | Actions that can be recorded
 data BookType
   = Enforce SymSt
@@ -100,7 +102,7 @@ data BookType
   -- ^ execute a sub-program/arena, like a loop arena part
   | Return
   -- ^ return to a higher level, i.e. the part that called a sub program
-
+  deriving (Show)
 ---------------------------------------------------------------------------------------------------
 -- | Create the bookkeeping data structure that is always empty (and remain so).
 -- This should only be used if no bookkeeping should be done.
@@ -271,6 +273,7 @@ data Prog
   -- ^ Sequence of program parts.
   | PAssign [(Symbol, Sort, Term)]
   -- ^ Parallel assignment to variables.
+  deriving (Show)
 
 -- | Create a simple sequential assign.
 assign :: Symbol -> Sort -> Term -> Prog
@@ -381,7 +384,15 @@ isProperAssign name =
 -- | Print an abstract program as a C program.
 printCProg :: Variables -> Prog -> String
 printCProg vars prog =
-  unlines $ makeHead vars ++ ["void main() {"] ++ indent (printStmt prog) ++ ["}"]
+  unlines $
+    [ "/* ========== RAW PROG FORCED =========="
+    , show prog
+    , "===================================== */"
+    ]
+    ++ makeHead vars
+    ++ ["void main() {"]
+    ++ indent (printStmt prog)
+    ++ ["}"]
 
 makeHead :: Variables -> [String]
 makeHead vars =

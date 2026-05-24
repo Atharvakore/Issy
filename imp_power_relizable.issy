@@ -1,0 +1,48 @@
+input bool a0
+input bool a1
+
+formula {
+  assert G [true]
+}
+
+game Safety from q1 {
+  loc empty 1
+  loc q1 1
+  loc q2 1
+  loc q3 1
+  loc q1q2 1
+  loc q1q3 1
+  loc q2q3 1
+  loc q1q2q3 1
+
+  // empty set
+  from empty to empty with [true]
+
+  // {q1}
+  from q1 to q2 with [a0 = false] && [a1 = false]
+  from q1 to q3 with [a0 = true] || [a1 = true]
+
+  // {q2}
+  from q2 to q2 with [a1 = false]
+  from q2 to q3 with [a1 = true]
+
+  // {q3}
+  from q3 to q3 with [true]
+
+  // {q1,q2}
+  from q1q2 to q2 with [a0 = false] && [a1 = false]
+  from q1q2 to q2q3 with [a0 = true] && [a1 = false]
+  from q1q2 to q3 with [a1 = true]
+
+  // {q1,q3}
+  from q1q3 to q2q3 with [a0 = false] && [a1 = false]
+  from q1q3 to q3 with [a0 = true] || [a1 = true]
+
+  // {q2,q3}
+  from q2q3 to q2q3 with [a1 = false]
+  from q2q3 to q3 with [a1 = true]
+
+  // {q1,q2,q3}
+  from q1q2q3 to q2q3 with [a1 = false]
+  from q1q2q3 to q3 with [a1 = true]
+}
