@@ -11,6 +11,7 @@
 ---------------------------------------------------------------------------------------------------
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 ---------------------------------------------------------------------------------------------------
 module Issy.Solver.Synthesis
@@ -52,11 +53,10 @@ import Issy.Logic.Reasoning (skolemize)
 import qualified Issy.Logic.SMT as SMT
 import qualified Issy.Printers.SMTLib as SMTLib
 import Issy.Solver.GameInterface
+
 import GHC.Generics (Generic)
-import Data.Aeson (ToJSON, encode)
-import qualified Data.ByteString.Lazy.Char8 as BL
-import qualified Data.ByteString.Lazy as BL
-import GHC.Generics (Generic)
+import Data.Aeson (ToJSON, FromJSON, encodeFile, eitherDecodeFileStrict)
+import System.Process (callProcess)
 ---------------------------------------------------------------------------------------------------
 -- Bookkeeping
 ---------------------------------------------------------------------------------------------------
@@ -282,7 +282,7 @@ data Prog
   deriving (Show,Generic)
 
 instance ToJSON Prog
-
+instance FromJSON Prog
 
 -- | Create a simple sequential assign.
 assign :: Symbol -> Sort -> Term -> Prog
@@ -293,14 +293,42 @@ assign var sort term = PAssign [(var, sort, term)]
 generateCProg :: Config -> Loc -> SyBo -> IO String
 generateCProg conf init sybo = do
     (vars, prog) <- extractProg conf init sybo
-    printCProg vars prog
 
+    let originalC = printCProg vars prog
+
+    putStrLn "===== ORIGINAL C PROGRAM ====="
+    putStrLn originalC
+
+    optimizedProg <- optimizeProgWithEgglog prog
+
+    let optimizedC = printCProg vars optimizedProg
+
+    putStrLn "===== OPTIMIZED C PROGRAM ====="
+    putStrLn optimizedC
+
+    pure optimizedC
+---------------------------------------------------------------------------------------------------
+--My Additions
+---------------------------------------------------------------------------------------------------
+optimizeProgWithEgglog :: Prog -> IO Prog
+optimizeProgWithEgglog prog = do
+    encodeFile "ast.json" prog
+
+    callProcess "python3" ["optimizer_simple_egglog.py"]
+
+    result <- eitherDecodeFileStrict "ast_optimized.json"
+
+    case result of
+      Left err ->
+        error ("Failed to parse optimized Prog: " ++ err)
+
+      Right optimizedProg ->
+        pure optimizedProg
 ---------------------------------------------------------------------------------------------------
 --Having Prog Data struct as Json 
 ---------------------------------------------------------------------------------------------------
 outJSONProg :: Prog -> FilePath -> IO ()
-outJSONProg prog filePath = BL.writeFile filePath $ encode prog
-
+outJSONProg prog filePath = encodeFile filePath prog
 
 
 ---------------------------------------------------------------------------------------------------
@@ -400,26 +428,9 @@ isProperAssign name =
 ---------------------------------------------------------------------------------------------------
 -- Printing
 ---------------------------------------------------------------------------------------------------
--- | Print an abstract program as a C program.
--- +Printing Abstract Prog Data Structure 
--- +also outputing Prog Data as
--- | Print an abstract program as a C program.
--- +Printing Abstract Prog Data Structure 
--- +also outputing Prog Data as JSON
-printCProg :: Variables -> Prog -> IO String
-printCProg vars prog = do
-  -- Output JSON to file
-  outJSONProg prog "ast.json"
-  -- Return C program as String
-  pure $ unlines $
-    [ "/* ========== RAW PROG FORCED =========="
-    , show prog
-    , "===================================== */"
-    ]
-    ++ makeHead vars
-    ++ ["void main() {"]
-    ++ indent (printStmt prog)
-    ++ ["}"]
+printCProg :: Variables -> Prog -> String
+printCProg vars prog =
+  unlines $ makeHead vars ++ ["void main() {"] ++ indent (printStmt prog) ++ ["}"]
 
 makeHead :: Variables -> [String]
 makeHead vars =
@@ -502,3 +513,4 @@ printTerm =
         [] -> error "assert: found empty function"
         x:xr -> "(" ++ printTerm x ++ " " ++ concatMap (\y -> (op ++ " ") ++ printTerm y) xr ++ ")"
 ---------------------------------------------------------------------------------------------------
+
