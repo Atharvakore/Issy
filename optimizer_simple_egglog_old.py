@@ -555,17 +555,6 @@ rules = ruleset(
     rewrite(EggTerm.Ite(EggTerm.Bool(True), x, y)).to(x),
     rewrite(EggTerm.Ite(EggTerm.Bool(False), x, y)).to(y),
     rewrite(EggTerm.Ite(x, y, y)).to(y),
-
-    # ----------------------------
-    # Numeric 0/1 ITE simplification
-    # ----------------------------
-    # These two rules mirror the C-pipeline optimizer:
-    #     cond ? 1 : 0 -> cond
-    #     cond ? 0 : 1 -> !cond
-    # Use them only when the surrounding term expects a boolean result.
-    # They intentionally turn integer 0/1 branches into boolean expressions.
-    rewrite(EggTerm.Ite(x, EggTerm.Num(1), EggTerm.Num(0))).to(x),
-    rewrite(EggTerm.Ite(x, EggTerm.Num(0), EggTerm.Num(1))).to(EggTerm.Not(x)),
 )
 
 

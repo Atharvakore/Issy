@@ -2149,84 +2149,60 @@
                           "tag": "Func",
                           "contents": [
                             {
-                              "tag": "FIte"
+                              "tag": "FOr"
                             },
                             [
                               {
                                 "tag": "Func",
                                 "contents": [
                                   {
-                                    "tag": "FAnd"
+                                    "tag": "FLt"
                                   },
                                   [
                                     {
-                                      "tag": "Func",
+                                      "tag": "Var",
                                       "contents": [
+                                        "x",
                                         {
-                                          "tag": "FLte"
-                                        },
-                                        [
-                                          {
-                                            "tag": "Const",
-                                            "contents": {
-                                              "tag": "CInt",
-                                              "contents": 1
-                                            }
-                                          },
-                                          {
-                                            "tag": "Var",
-                                            "contents": [
-                                              "x",
-                                              {
-                                                "tag": "SInt"
-                                              }
-                                            ]
-                                          }
-                                        ]
+                                          "tag": "SInt"
+                                        }
                                       ]
                                     },
                                     {
-                                      "tag": "Func",
-                                      "contents": [
-                                        {
-                                          "tag": "FLt"
-                                        },
-                                        [
-                                          {
-                                            "tag": "Var",
-                                            "contents": [
-                                              "x",
-                                              {
-                                                "tag": "SInt"
-                                              }
-                                            ]
-                                          },
-                                          {
-                                            "tag": "Const",
-                                            "contents": {
-                                              "tag": "CInt",
-                                              "contents": 12
-                                            }
-                                          }
-                                        ]
-                                      ]
+                                      "tag": "Const",
+                                      "contents": {
+                                        "tag": "CInt",
+                                        "contents": 1
+                                      }
                                     }
                                   ]
                                 ]
                               },
                               {
-                                "tag": "Const",
-                                "contents": {
-                                  "tag": "CInt",
-                                  "contents": 0
-                                }
-                              },
-                              {
-                                "tag": "Const",
-                                "contents": {
-                                  "tag": "CInt",
-                                  "contents": 1
-                                }
+                                "tag": "Func",
+                                "contents": [
+                                  {
+                                    "tag": "FLte"
+                                  },
+                                  [
+                                    {
+                                      "tag": "Const",
+                                      "contents": {
+                                        "tag": "CInt",
+                                        "contents": 12
+                                      }
+                                    },
+                                    {
+                                      "tag": "Var",
+                                      "contents": [
+                                        "x",
+                                        {
+                                          "tag": "SInt"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                ]
                               }
                             ]
                           ]

@@ -303,8 +303,8 @@ generateCProg conf init sybo = do
 
     let optimizedC = printCProg vars optimizedProg
 
-    putStrLn "===== OPTIMIZED C PROGRAM ====="
-    putStrLn optimizedC
+   -- putStrLn "===== OPTIMIZED C PROGRAM ====="
+   -- putStrLn optimizedC
 
     pure optimizedC
 ---------------------------------------------------------------------------------------------------
