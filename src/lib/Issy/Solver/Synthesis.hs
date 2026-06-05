@@ -283,6 +283,7 @@ data Prog
 
 instance ToJSON Prog
 
+
 -- | Create a simple sequential assign.
 assign :: Symbol -> Sort -> Term -> Prog
 assign var sort term = PAssign [(var, sort, term)]
