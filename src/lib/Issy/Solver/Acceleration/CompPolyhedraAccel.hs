@@ -7,7 +7,7 @@
 --
 -- This module implement the compositional version of acceleration based on polyhedra.
 ---------------------------------------------------------------------------------------------------
-{-# LANGUAGE Safe, MultiWayIf #-}
+{-# LANGUAGE Trustworthy, MultiWayIf #-}
 
 ---------------------------------------------------------------------------------------------------
 module Issy.Solver.Acceleration.CompPolyhedraAccel

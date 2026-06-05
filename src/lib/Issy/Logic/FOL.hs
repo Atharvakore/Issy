@@ -13,7 +13,10 @@
 -- the data structure of 'Term's directly and should (e.g. for construction) use the abstract
 -- interface.
 ---------------------------------------------------------------------------------------------------
-{-# LANGUAGE Safe, LambdaCase #-}
+{-# LANGUAGE  LambdaCase #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE Trustworthy #-}
 
 ---------------------------------------------------------------------------------------------------
 module Issy.Logic.FOL
@@ -128,6 +131,9 @@ import qualified Data.Set as Set
 
 import Issy.Logic.Propositional
 
+import Data.Aeson (ToJSON, FromJSON)
+import GHC.Generics (Generic)
+
 ---------------------------------------------------------------------------------------------------
 -- Data Structures
 ---------------------------------------------------------------------------------------------------
@@ -149,7 +155,8 @@ data Sort
   -- that while this data structure allows to represent higher-order
   -- functions other parts of the implementation will probably not
   -- support those
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Ord, Show, Generic)
+
 
 -- | Enum representation of function symbols
 data Function
@@ -188,7 +195,8 @@ data Function
   -- ^ remainder of integer division (SMTLib "mod")
   | FDivInt
   -- ^ integer division (SMTLib "div")
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Ord, Show, Generic)
+
 
 -- | List of all boolean operation 'Function's
 booleanFunctions :: [Function]
@@ -211,7 +219,7 @@ data Quantifier
   -- ^ existential quantifier
   | Forall
   -- ^ universal quantifier
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Ord, Show, Generic)
 
 -- | Representation of constant values
 data Constant
@@ -221,7 +229,7 @@ data Constant
   -- ^ this is an real-valued constant
   | CBool Bool
   -- ^ this is a boolean constant
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Ord, Show, Generic)
 
 -- | Representation of first-order terms. For quantifiers and lambda
 -- expression a shared space of de-Bruijn indices is used. Those
@@ -242,7 +250,23 @@ data Term
   -- ^ This is a de-Bruijn indexed quantifier
   | Lambda Sort Term
   -- ^ This is a de-Bruijn indexed lambda-term
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Ord, Show, Generic)
+
+  -- JSON instances
+instance ToJSON Sort
+instance FromJSON Sort
+
+instance ToJSON Function
+instance FromJSON Function
+
+instance ToJSON Quantifier
+instance FromJSON Quantifier
+
+instance ToJSON Constant
+instance FromJSON Constant
+
+instance ToJSON Term
+instance FromJSON Term
 
 ---------------------------------------------------------------------------------------------------
 -- Propositional Implementation

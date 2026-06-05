@@ -7,7 +7,7 @@
 --
 -- This module provides an interface to the different attractor acceleraion techniques.
 ---------------------------------------------------------------------------------------------------
-{-# LANGUAGE Safe, MultiWayIf #-}
+{-# LANGUAGE Trustworthy, MultiWayIf #-}
 
 ---------------------------------------------------------------------------------------------------
 module Issy.Solver.Acceleration

@@ -8,6 +8,7 @@
 -- This module implements solving game with different winning conditions,like reachability,
 -- Büchi, or parity conditions.
 ---------------------------------------------------------------------------------------------------
+{-# LANGUAGE DeriveGeneric #-}
 module Issy.Solver.ObjectiveSolver
   ( solve
   ) where
@@ -30,7 +31,7 @@ import Issy.Solver.Synthesis (SyBo)
 import qualified Issy.Solver.Synthesis as Synt
 import Issy.Statistics (Stats)
 import qualified Issy.Statistics as Stats
-
+import GHC.Generics (Generic)
 ---------------------------------------------------------------------------------------------------
 -- Overall Solving
 ---------------------------------------------------------------------------------------------------

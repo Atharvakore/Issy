@@ -21,7 +21,7 @@ library
     -Wwarn=type-defaults
     -fno-ignore-asserts
     -static
------optl-static
+  
 
   build-depends:
       base
@@ -29,6 +29,8 @@ library
     , process
     , hanoi
     , tsl-parser
+    ,aeson 
+    ,bytestring
 
   exposed-modules:
       Issy
@@ -139,6 +141,10 @@ executable issy
   build-depends:
       base
     , issy
+    ,  base >=4.12 && <4.21
+    ,  aeson >=2.1
+    ,  bytestring
+    , containers
 
   hs-source-dirs:
     src/issy

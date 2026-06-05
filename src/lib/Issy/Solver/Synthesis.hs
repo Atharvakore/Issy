@@ -9,7 +9,8 @@
 -- necessary steps in the computation, as well as extracting a program from this stored
 -- information.
 ---------------------------------------------------------------------------------------------------
-{-# LANGUAGE Safe, LambdaCase #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE DeriveGeneric #-}
 
 ---------------------------------------------------------------------------------------------------
 module Issy.Solver.Synthesis
@@ -34,6 +35,7 @@ module Issy.Solver.Synthesis
   , extractProg
   , printCProg
   , generateCProg
+  , outJSONProg
   ) where
 
 ---------------------------------------------------------------------------------------------------
@@ -50,7 +52,11 @@ import Issy.Logic.Reasoning (skolemize)
 import qualified Issy.Logic.SMT as SMT
 import qualified Issy.Printers.SMTLib as SMTLib
 import Issy.Solver.GameInterface
-
+import GHC.Generics (Generic)
+import Data.Aeson (ToJSON, encode)
+import qualified Data.ByteString.Lazy.Char8 as BL
+import qualified Data.ByteString.Lazy as BL
+import GHC.Generics (Generic)
 ---------------------------------------------------------------------------------------------------
 -- Bookkeeping
 ---------------------------------------------------------------------------------------------------
@@ -273,7 +279,9 @@ data Prog
   -- ^ Sequence of program parts.
   | PAssign [(Symbol, Sort, Term)]
   -- ^ Parallel assignment to variables.
-  deriving (Show)
+  deriving (Show,Generic)
+
+instance ToJSON Prog
 
 -- | Create a simple sequential assign.
 assign :: Symbol -> Sort -> Term -> Prog
@@ -282,7 +290,17 @@ assign var sort term = PAssign [(var, sort, term)]
 -- | Tie together 'extractProg' and 'printCProg' to compute a program and print
 -- it as a C program.
 generateCProg :: Config -> Loc -> SyBo -> IO String
-generateCProg conf init sybo = uncurry printCProg <$> extractProg conf init sybo
+generateCProg conf init sybo = do
+    (vars, prog) <- extractProg conf init sybo
+    printCProg vars prog
+
+---------------------------------------------------------------------------------------------------
+--Having Prog Data struct as Json 
+---------------------------------------------------------------------------------------------------
+outJSONProg :: Prog -> FilePath -> IO ()
+outJSONProg prog filePath = BL.writeFile filePath $ encode prog
+
+
 
 ---------------------------------------------------------------------------------------------------
 -- Translation to program
@@ -382,9 +400,17 @@ isProperAssign name =
 -- Printing
 ---------------------------------------------------------------------------------------------------
 -- | Print an abstract program as a C program.
-printCProg :: Variables -> Prog -> String
-printCProg vars prog =
-  unlines $
+-- +Printing Abstract Prog Data Structure 
+-- +also outputing Prog Data as
+-- | Print an abstract program as a C program.
+-- +Printing Abstract Prog Data Structure 
+-- +also outputing Prog Data as JSON
+printCProg :: Variables -> Prog -> IO String
+printCProg vars prog = do
+  -- Output JSON to file
+  outJSONProg prog "ast.json"
+  -- Return C program as String
+  pure $ unlines $
     [ "/* ========== RAW PROG FORCED =========="
     , show prog
     , "===================================== */"

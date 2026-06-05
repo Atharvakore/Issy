@@ -8,7 +8,7 @@
 -- This module implements computing and using enforcement summaries as described in the
 -- TACAS'26 paper.
 ---------------------------------------------------------------------------------------------------
-{-# LANGUAGE Safe #-}
+
 
 ---------------------------------------------------------------------------------------------------
 module Issy.Solver.EnforcementSummaries

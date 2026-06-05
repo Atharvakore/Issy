@@ -1,0 +1,14 @@
+state int x
+
+game Reachability from l {
+
+    loc l 0 with [x >= 0] && [x <= 10]
+    loc t 1
+
+    from l to l with 
+        [x > 0] && ([x' = x - 1] || [x' = x + 1])
+    from l to t with 
+        ![x > 0] && keep(x)
+    
+    from t to t with true                 
+}

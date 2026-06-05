@@ -9,7 +9,7 @@
 -- computation is used on the "top-level", i.e. not within acceleration procedure.
 -- However, it might call those accleration procedures.
 ---------------------------------------------------------------------------------------------------
-{-# LANGUAGE Safe #-}
+{-# LANGUAGE Trustworthy #-}
 
 ---------------------------------------------------------------------------------------------------
 module Issy.Solver.Attractor
