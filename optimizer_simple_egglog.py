@@ -435,7 +435,8 @@ x, y, z = vars_("x y z", EggTerm)
 #    Type-safety note:
 #    - Bool rules use EggTerm.Bool(True/False)
 #    - Integer rules use EggTerm.Num(...)
-#    Do not rewrite integer ITEs like cond ? 1 : 0 into booleans.
+#    - Do NOT rewrite integer ITEs like cond ? 1 : 0 into booleans
+#      unless you also track the expected sort. This simple optimizer does not.
 # ============================================================
 
 rules = ruleset(
@@ -453,6 +454,10 @@ rules = ruleset(
 
     rewrite(EggTerm.Add(x, x)).to(EggTerm.Mul(EggTerm.Num(2), x)),
 
+    # x + (-x) -> 0
+    rewrite(EggTerm.Add(EggTerm.Neg(x), x)).to(EggTerm.Num(0)),
+    rewrite(EggTerm.Add(x, EggTerm.Neg(x))).to(EggTerm.Num(0)),
+
     # ----------------------------
     # Subtraction
     # ----------------------------
@@ -462,9 +467,14 @@ rules = ruleset(
     rewrite(EggTerm.Sub(x, EggTerm.Neg(y))).to(EggTerm.Add(x, y)),
     rewrite(EggTerm.Sub(EggTerm.Neg(x), y)).to(EggTerm.Neg(EggTerm.Add(x, y))),
 
+    # Cancellation
     rewrite(EggTerm.Add(EggTerm.Sub(x, y), y)).to(x),
     rewrite(EggTerm.Add(y, EggTerm.Sub(x, y))).to(x),
     rewrite(EggTerm.Sub(EggTerm.Add(x, y), y)).to(x),
+    rewrite(EggTerm.Sub(EggTerm.Add(x, y), x)).to(y),
+    rewrite(EggTerm.Sub(EggTerm.Add(y, x), x)).to(y),
+    rewrite(EggTerm.Sub(x, EggTerm.Add(x, y))).to(EggTerm.Neg(y)),
+    rewrite(EggTerm.Sub(x, EggTerm.Add(y, x))).to(EggTerm.Neg(y)),
 
     # ----------------------------
     # Negation
@@ -475,6 +485,8 @@ rules = ruleset(
     rewrite(EggTerm.Neg(EggTerm.Neg(x))).to(x),
     rewrite(EggTerm.Neg(EggTerm.Sub(x, y))).to(EggTerm.Sub(y, x)),
     rewrite(EggTerm.Neg(EggTerm.Add(x, y))).to(EggTerm.Add(EggTerm.Neg(x), EggTerm.Neg(y))),
+    rewrite(EggTerm.Neg(EggTerm.Mul(EggTerm.Num(-1), x))).to(x),
+    rewrite(EggTerm.Neg(EggTerm.Mul(x, EggTerm.Num(-1)))).to(x),
 
     # ----------------------------
     # Multiplication
@@ -491,8 +503,13 @@ rules = ruleset(
     rewrite(EggTerm.Mul(EggTerm.Num(-1), EggTerm.Neg(x))).to(x),
     rewrite(EggTerm.Mul(EggTerm.Neg(x), EggTerm.Neg(y))).to(EggTerm.Mul(x, y)),
 
+    # Extra constant cleanup
+    rewrite(EggTerm.Mul(EggTerm.Num(2), EggTerm.Num(0))).to(EggTerm.Num(0)),
+    rewrite(EggTerm.Mul(EggTerm.Num(-1), EggTerm.Num(0))).to(EggTerm.Num(0)),
+    rewrite(EggTerm.Mul(EggTerm.Num(0), EggTerm.Num(-1))).to(EggTerm.Num(0)),
+
     # ----------------------------
-    # Generated-program patterns from Issy/C output
+    # Generated-program patterns from Issy/C-style output
     # ----------------------------
     # init_x + (-1 * x) -> init_x - x
     rewrite(EggTerm.Add(x, EggTerm.Mul(EggTerm.Num(-1), y))).to(EggTerm.Sub(x, y)),
@@ -512,6 +529,14 @@ rules = ruleset(
             EggTerm.Add(EggTerm.Num(1), EggTerm.Mul(EggTerm.Num(-1), x)),
         )
     ).to(EggTerm.Sub(x, EggTerm.Num(1))),
+
+    # General Issy negation cleanup
+    rewrite(EggTerm.Mul(EggTerm.Num(-1), EggTerm.Add(x, y))).to(
+        EggTerm.Add(EggTerm.Neg(x), EggTerm.Neg(y))
+    ),
+    rewrite(EggTerm.Mul(EggTerm.Num(-1), EggTerm.Sub(x, y))).to(EggTerm.Sub(y, x)),
+    rewrite(EggTerm.Mul(EggTerm.Num(-1), EggTerm.Mul(EggTerm.Num(-1), x))).to(x),
+    rewrite(EggTerm.Mul(EggTerm.Mul(EggTerm.Num(-1), x), EggTerm.Num(-1))).to(x),
 
     # ----------------------------
     # Boolean AND
@@ -543,11 +568,41 @@ rules = ruleset(
     rewrite(EggTerm.Not(EggTerm.Lt(x, y))).to(EggTerm.Le(y, x)),
 
     # ----------------------------
+    # Boolean absorption
+    # ----------------------------
+    rewrite(EggTerm.And(x, EggTerm.Or(x, y))).to(x),
+    rewrite(EggTerm.And(EggTerm.Or(x, y), x)).to(x),
+    rewrite(EggTerm.Or(x, EggTerm.And(x, y))).to(x),
+    rewrite(EggTerm.Or(EggTerm.And(x, y), x)).to(x),
+
+    # ----------------------------
+    # Boolean contradiction / tautology
+    # ----------------------------
+    rewrite(EggTerm.And(x, EggTerm.Not(x))).to(EggTerm.Bool(False)),
+    rewrite(EggTerm.And(EggTerm.Not(x), x)).to(EggTerm.Bool(False)),
+    rewrite(EggTerm.Or(x, EggTerm.Not(x))).to(EggTerm.Bool(True)),
+    rewrite(EggTerm.Or(EggTerm.Not(x), x)).to(EggTerm.Bool(True)),
+
+    # ----------------------------
     # Comparisons
     # ----------------------------
     rewrite(EggTerm.Eq(x, x)).to(EggTerm.Bool(True)),
     rewrite(EggTerm.Lt(x, x)).to(EggTerm.Bool(False)),
     rewrite(EggTerm.Le(x, x)).to(EggTerm.Bool(True)),
+
+    # Comparison normalization for arithmetic-difference guards
+    rewrite(EggTerm.Lt(EggTerm.Num(0), EggTerm.Sub(x, y))).to(EggTerm.Lt(y, x)),
+    rewrite(EggTerm.Le(EggTerm.Sub(x, y), EggTerm.Num(0))).to(EggTerm.Le(x, y)),
+    rewrite(EggTerm.Lt(EggTerm.Sub(x, y), EggTerm.Num(0))).to(EggTerm.Lt(x, y)),
+
+    # ----------------------------
+    # Equality boolean simplification
+    # Only safe when FEq is used with boolean operands.
+    # ----------------------------
+    rewrite(EggTerm.Eq(EggTerm.Bool(True), x)).to(x),
+    rewrite(EggTerm.Eq(x, EggTerm.Bool(True))).to(x),
+    rewrite(EggTerm.Eq(EggTerm.Bool(False), x)).to(EggTerm.Not(x)),
+    rewrite(EggTerm.Eq(x, EggTerm.Bool(False))).to(EggTerm.Not(x)),
 
     # ----------------------------
     # ITE simplification
@@ -556,16 +611,10 @@ rules = ruleset(
     rewrite(EggTerm.Ite(EggTerm.Bool(False), x, y)).to(y),
     rewrite(EggTerm.Ite(x, y, y)).to(y),
 
-    # ----------------------------
-    # Numeric 0/1 ITE simplification
-    # ----------------------------
-    # These two rules mirror the C-pipeline optimizer:
-    #     cond ? 1 : 0 -> cond
-    #     cond ? 0 : 1 -> !cond
-    # Use them only when the surrounding term expects a boolean result.
-    # They intentionally turn integer 0/1 branches into boolean expressions.
-    rewrite(EggTerm.Ite(x, EggTerm.Num(1), EggTerm.Num(0))).to(x),
-    rewrite(EggTerm.Ite(x, EggTerm.Num(0), EggTerm.Num(1))).to(EggTerm.Not(x)),
+    # Boolean ITE simplification only.
+    # Do not add Num(1)/Num(0) -> Bool rewrites without expected-sort tracking.
+    rewrite(EggTerm.Ite(x, EggTerm.Bool(True), EggTerm.Bool(False))).to(x),
+    rewrite(EggTerm.Ite(x, EggTerm.Bool(False), EggTerm.Bool(True))).to(EggTerm.Not(x)),
 )
 
 
@@ -831,6 +880,10 @@ def is_cbool(term: Term, value: Optional[bool] = None) -> bool:
     return value is None or term.const.value == value
 
 
+def is_empty_sequence(prog: Prog) -> bool:
+    return isinstance(prog, Sequence) and len(prog.programs) == 0
+
+
 def optimize_prog_structure(prog: Prog) -> Prog:
     if isinstance(prog, InfLoop):
         return InfLoop(optimize_prog_structure(prog.body))
@@ -842,6 +895,8 @@ def optimize_prog_structure(prog: Prog) -> Prog:
         if is_cbool(condition, True):
             return body
         if is_cbool(condition, False):
+            return Sequence([])
+        if is_empty_sequence(body):
             return Sequence([])
 
         return Cond(condition, body)
@@ -856,20 +911,129 @@ def optimize_prog_structure(prog: Prog) -> Prog:
                 new_programs.append(p2)
 
         # Remove empty Sequence([])
-        new_programs = [p for p in new_programs if not (isinstance(p, Sequence) and len(p.programs) == 0)]
+        new_programs = [p for p in new_programs if not is_empty_sequence(p)]
         return Sequence(new_programs)
 
     return prog
 
 
-def optimize_ast_with_egglog(prog: Prog) -> Prog:
-    # One Egglog pass is usually enough because each expression is saturated.
-    # The structure pass removes Cond True/False only after term optimization.
-    return optimize_prog_structure(optimize_prog_terms_with_egglog(prog))
+# ============================================================
+# 11. Lower expression-level FIte assignments into guarded commands
+# ============================================================
+
+def negate_term(term: Term) -> Term:
+    """
+    Build a clean logical negation term.
+
+    This avoids producing unnecessary FNot(FNot(x)) and folds boolean constants.
+    """
+    if isinstance(term, Func) and term.function.name == "FNot" and len(term.args) == 1:
+        return term.args[0]
+
+    if isinstance(term, Const) and isinstance(term.const, CBool):
+        return bool_const(not term.const.value)
+
+    return make_func("FNot", [term])
+
+
+def lower_ite_assignment(symbol: str, sort: Sort, term: Term) -> Prog:
+    """
+    Convert an expression-level assignment with FIte into guarded commands.
+
+    Input shape:
+
+        x := FIte(cond, then_expr, else_expr)
+
+    Output shape, because this Prog AST has Cond but no real IfElse:
+
+        Sequence([
+            Cond(cond, x := then_expr),
+            Cond(Not(cond), x := else_expr),
+        ])
+
+    This is a guarded-command lowering, not a real IfElse node.
+    It is safe here because Term is pure: Var, Const, and Func contain no side effects.
+    """
+    if not isinstance(term, Func):
+        return PAssign([(symbol, sort, term)])
+
+    if term.function.name != "FIte":
+        return PAssign([(symbol, sort, term)])
+
+    if len(term.args) != 3:
+        return PAssign([(symbol, sort, term)])
+
+    cond, then_expr, else_expr = term.args
+
+    return Sequence([
+        Cond(
+            cond,
+            lower_ite_assignment(symbol, sort, then_expr),
+        ),
+        Cond(
+            negate_term(cond),
+            lower_ite_assignment(symbol, sort, else_expr),
+        ),
+    ])
+
+
+def lower_ite_assignments_in_prog(prog: Prog) -> Prog:
+    """
+    Walk a Prog AST and lower every PAssign term of the form FIte(...).
+    """
+    if isinstance(prog, PAssign):
+        lowered_programs: List[Prog] = []
+
+        for symbol, sort, term in prog.assigns:
+            lowered_programs.append(
+                lower_ite_assignment(symbol, sort, term)
+            )
+
+        if len(lowered_programs) == 1:
+            return lowered_programs[0]
+
+        return Sequence(lowered_programs)
+
+    if isinstance(prog, Cond):
+        return Cond(
+            prog.condition,
+            lower_ite_assignments_in_prog(prog.body),
+        )
+
+    if isinstance(prog, Sequence):
+        return Sequence([
+            lower_ite_assignments_in_prog(p)
+            for p in prog.programs
+        ])
+
+    if isinstance(prog, InfLoop):
+        return InfLoop(
+            lower_ite_assignments_in_prog(prog.body)
+        )
+
+    return prog
 
 
 # ============================================================
-# 11. Main script
+# 12. Full optimization pipeline
+# ============================================================
+
+def optimize_ast_with_egglog(prog: Prog) -> Prog:
+    """
+    Full pipeline:
+
+    1. Use Egglog to simplify expression terms.
+    2. Lower expression-level FIte assignments into guarded Cond/Sequence programs.
+    3. Clean trivial program structure such as Cond(True), Cond(False), and empty Sequence.
+    """
+    optimized_terms = optimize_prog_terms_with_egglog(prog)
+    lowered_ites = lower_ite_assignments_in_prog(optimized_terms)
+    cleaned = optimize_prog_structure(lowered_ites)
+    return cleaned
+
+
+# ============================================================
+# 13. Main script
 # ============================================================
 
 def load_json(path: str) -> Any:
