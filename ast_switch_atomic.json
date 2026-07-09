@@ -1,0 +1,2051 @@
+{
+  "tag": "Sequence",
+  "contents": [
+    {
+      "tag": "Declare",
+      "contents": [
+        "__tmp_init_x",
+        {
+          "tag": "SInt"
+        }
+      ]
+    },
+    {
+      "tag": "Declare",
+      "contents": [
+        "__tmp_prog_counter",
+        {
+          "tag": "SInt"
+        }
+      ]
+    },
+    {
+      "tag": "Declare",
+      "contents": [
+        "__tmp_x",
+        {
+          "tag": "SInt"
+        }
+      ]
+    },
+    {
+      "tag": "Declare",
+      "contents": [
+        "prog_counter",
+        {
+          "tag": "SInt"
+        }
+      ]
+    },
+    {
+      "tag": "PAssign",
+      "contents": [
+        [
+          "prog_counter",
+          {
+            "tag": "SInt"
+          },
+          {
+            "tag": "Const",
+            "contents": {
+              "tag": "CInt",
+              "contents": 0
+            }
+          }
+        ]
+      ]
+    },
+    {
+      "tag": "PAssign",
+      "contents": [
+        [
+          "x",
+          {
+            "tag": "SInt"
+          },
+          {
+            "tag": "Const",
+            "contents": {
+              "tag": "CInt",
+              "contents": 10
+            }
+          }
+        ]
+      ]
+    },
+    {
+      "tag": "InfLoop",
+      "contents": {
+        "tag": "Switch",
+        "contents": [
+          {
+            "tag": "Var",
+            "contents": [
+              "prog_counter",
+              {
+                "tag": "SInt"
+              }
+            ]
+          },
+          [
+            {
+              "tag": "Case",
+              "contents": [
+                0,
+                {
+                  "tag": "Sequence",
+                  "contents": [
+                    {
+                      "tag": "PAssign",
+                      "contents": [
+                        [
+                          "__tmp_init_x",
+                          {
+                            "tag": "SInt"
+                          },
+                          {
+                            "tag": "Var",
+                            "contents": [
+                              "init_x",
+                              {
+                                "tag": "SInt"
+                              }
+                            ]
+                          }
+                        ]
+                      ]
+                    },
+                    {
+                      "tag": "PAssign",
+                      "contents": [
+                        [
+                          "__tmp_prog_counter",
+                          {
+                            "tag": "SInt"
+                          },
+                          {
+                            "tag": "Var",
+                            "contents": [
+                              "prog_counter",
+                              {
+                                "tag": "SInt"
+                              }
+                            ]
+                          }
+                        ]
+                      ]
+                    },
+                    {
+                      "tag": "PAssign",
+                      "contents": [
+                        [
+                          "__tmp_x",
+                          {
+                            "tag": "SInt"
+                          },
+                          {
+                            "tag": "Var",
+                            "contents": [
+                              "x",
+                              {
+                                "tag": "SInt"
+                              }
+                            ]
+                          }
+                        ]
+                      ]
+                    },
+                    {
+                      "tag": "InfLoop",
+                      "contents": {
+                        "tag": "Switch",
+                        "contents": [
+                          {
+                            "tag": "Var",
+                            "contents": [
+                              "prog_counter",
+                              {
+                                "tag": "SInt"
+                              }
+                            ]
+                          },
+                          [
+                            {
+                              "tag": "Case",
+                              "contents": [
+                                0,
+                                {
+                                  "tag": "Sequence",
+                                  "contents": [
+                                    {
+                                      "tag": "PAssign",
+                                      "contents": [
+                                        [
+                                          "__tmp_init_x",
+                                          {
+                                            "tag": "SInt"
+                                          },
+                                          {
+                                            "tag": "Var",
+                                            "contents": [
+                                              "init_x",
+                                              {
+                                                "tag": "SInt"
+                                              }
+                                            ]
+                                          }
+                                        ]
+                                      ]
+                                    },
+                                    {
+                                      "tag": "PAssign",
+                                      "contents": [
+                                        [
+                                          "__tmp_prog_counter",
+                                          {
+                                            "tag": "SInt"
+                                          },
+                                          {
+                                            "tag": "Var",
+                                            "contents": [
+                                              "prog_counter",
+                                              {
+                                                "tag": "SInt"
+                                              }
+                                            ]
+                                          }
+                                        ]
+                                      ]
+                                    },
+                                    {
+                                      "tag": "PAssign",
+                                      "contents": [
+                                        [
+                                          "__tmp_x",
+                                          {
+                                            "tag": "SInt"
+                                          },
+                                          {
+                                            "tag": "Var",
+                                            "contents": [
+                                              "x",
+                                              {
+                                                "tag": "SInt"
+                                              }
+                                            ]
+                                          }
+                                        ]
+                                      ]
+                                    },
+                                    {
+                                      "tag": "Cond",
+                                      "contents": [
+                                        {
+                                          "tag": "Func",
+                                          "contents": [
+                                            {
+                                              "tag": "FEq"
+                                            },
+                                            [
+                                              {
+                                                "tag": "Var",
+                                                "contents": [
+                                                  "x",
+                                                  {
+                                                    "tag": "SInt"
+                                                  }
+                                                ]
+                                              },
+                                              {
+                                                "tag": "Const",
+                                                "contents": {
+                                                  "tag": "CInt",
+                                                  "contents": 0
+                                                }
+                                              }
+                                            ]
+                                          ]
+                                        },
+                                        {
+                                          "tag": "Sequence",
+                                          "contents": [
+                                            {
+                                              "tag": "Read"
+                                            },
+                                            {
+                                              "tag": "PAssign",
+                                              "contents": [
+                                                [
+                                                  "__tmp_prog_counter",
+                                                  {
+                                                    "tag": "SInt"
+                                                  },
+                                                  {
+                                                    "tag": "Const",
+                                                    "contents": {
+                                                      "tag": "CInt",
+                                                      "contents": 1
+                                                    }
+                                                  }
+                                                ]
+                                              ]
+                                            },
+                                            {
+                                              "tag": "PAssign",
+                                              "contents": [
+                                                [
+                                                  "init_x",
+                                                  {
+                                                    "tag": "SInt"
+                                                  },
+                                                  {
+                                                    "tag": "Var",
+                                                    "contents": [
+                                                      "__tmp_init_x",
+                                                      {
+                                                        "tag": "SInt"
+                                                      }
+                                                    ]
+                                                  }
+                                                ]
+                                              ]
+                                            },
+                                            {
+                                              "tag": "PAssign",
+                                              "contents": [
+                                                [
+                                                  "prog_counter",
+                                                  {
+                                                    "tag": "SInt"
+                                                  },
+                                                  {
+                                                    "tag": "Var",
+                                                    "contents": [
+                                                      "__tmp_prog_counter",
+                                                      {
+                                                        "tag": "SInt"
+                                                      }
+                                                    ]
+                                                  }
+                                                ]
+                                              ]
+                                            },
+                                            {
+                                              "tag": "PAssign",
+                                              "contents": [
+                                                [
+                                                  "x",
+                                                  {
+                                                    "tag": "SInt"
+                                                  },
+                                                  {
+                                                    "tag": "Var",
+                                                    "contents": [
+                                                      "__tmp_x",
+                                                      {
+                                                        "tag": "SInt"
+                                                      }
+                                                    ]
+                                                  }
+                                                ]
+                                              ]
+                                            },
+                                            {
+                                              "tag": "Continue"
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "tag": "Declare",
+                                      "contents": [
+                                        "init_x",
+                                        {
+                                          "tag": "SInt"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "tag": "InfLoop",
+                                      "contents": {
+                                        "tag": "Switch",
+                                        "contents": [
+                                          {
+                                            "tag": "Var",
+                                            "contents": [
+                                              "prog_counter",
+                                              {
+                                                "tag": "SInt"
+                                              }
+                                            ]
+                                          },
+                                          [
+                                            {
+                                              "tag": "Case",
+                                              "contents": [
+                                                0,
+                                                {
+                                                  "tag": "Sequence",
+                                                  "contents": [
+                                                    {
+                                                      "tag": "PAssign",
+                                                      "contents": [
+                                                        [
+                                                          "__tmp_init_x",
+                                                          {
+                                                            "tag": "SInt"
+                                                          },
+                                                          {
+                                                            "tag": "Var",
+                                                            "contents": [
+                                                              "init_x",
+                                                              {
+                                                                "tag": "SInt"
+                                                              }
+                                                            ]
+                                                          }
+                                                        ]
+                                                      ]
+                                                    },
+                                                    {
+                                                      "tag": "PAssign",
+                                                      "contents": [
+                                                        [
+                                                          "__tmp_prog_counter",
+                                                          {
+                                                            "tag": "SInt"
+                                                          },
+                                                          {
+                                                            "tag": "Var",
+                                                            "contents": [
+                                                              "prog_counter",
+                                                              {
+                                                                "tag": "SInt"
+                                                              }
+                                                            ]
+                                                          }
+                                                        ]
+                                                      ]
+                                                    },
+                                                    {
+                                                      "tag": "PAssign",
+                                                      "contents": [
+                                                        [
+                                                          "__tmp_x",
+                                                          {
+                                                            "tag": "SInt"
+                                                          },
+                                                          {
+                                                            "tag": "Var",
+                                                            "contents": [
+                                                              "x",
+                                                              {
+                                                                "tag": "SInt"
+                                                              }
+                                                            ]
+                                                          }
+                                                        ]
+                                                      ]
+                                                    },
+                                                    {
+                                                      "tag": "PAssign",
+                                                      "contents": [
+                                                        [
+                                                          "__tmp_init_x",
+                                                          {
+                                                            "tag": "SInt"
+                                                          },
+                                                          {
+                                                            "tag": "Var",
+                                                            "contents": [
+                                                              "x",
+                                                              {
+                                                                "tag": "SInt"
+                                                              }
+                                                            ]
+                                                          }
+                                                        ]
+                                                      ]
+                                                    },
+                                                    {
+                                                      "tag": "Cond",
+                                                      "contents": [
+                                                        {
+                                                          "tag": "Func",
+                                                          "contents": [
+                                                            {
+                                                              "tag": "FEq"
+                                                            },
+                                                            [
+                                                              {
+                                                                "tag": "Var",
+                                                                "contents": [
+                                                                  "x",
+                                                                  {
+                                                                    "tag": "SInt"
+                                                                  }
+                                                                ]
+                                                              },
+                                                              {
+                                                                "tag": "Const",
+                                                                "contents": {
+                                                                  "tag": "CInt",
+                                                                  "contents": 0
+                                                                }
+                                                              }
+                                                            ]
+                                                          ]
+                                                        },
+                                                        {
+                                                          "tag": "Sequence",
+                                                          "contents": [
+                                                            {
+                                                              "tag": "PAssign",
+                                                              "contents": [
+                                                                [
+                                                                  "__tmp_prog_counter",
+                                                                  {
+                                                                    "tag": "SInt"
+                                                                  },
+                                                                  {
+                                                                    "tag": "Const",
+                                                                    "contents": {
+                                                                      "tag": "CInt",
+                                                                      "contents": 0
+                                                                    }
+                                                                  }
+                                                                ]
+                                                              ]
+                                                            },
+                                                            {
+                                                              "tag": "PAssign",
+                                                              "contents": [
+                                                                [
+                                                                  "init_x",
+                                                                  {
+                                                                    "tag": "SInt"
+                                                                  },
+                                                                  {
+                                                                    "tag": "Var",
+                                                                    "contents": [
+                                                                      "__tmp_init_x",
+                                                                      {
+                                                                        "tag": "SInt"
+                                                                      }
+                                                                    ]
+                                                                  }
+                                                                ]
+                                                              ]
+                                                            },
+                                                            {
+                                                              "tag": "PAssign",
+                                                              "contents": [
+                                                                [
+                                                                  "prog_counter",
+                                                                  {
+                                                                    "tag": "SInt"
+                                                                  },
+                                                                  {
+                                                                    "tag": "Var",
+                                                                    "contents": [
+                                                                      "__tmp_prog_counter",
+                                                                      {
+                                                                        "tag": "SInt"
+                                                                      }
+                                                                    ]
+                                                                  }
+                                                                ]
+                                                              ]
+                                                            },
+                                                            {
+                                                              "tag": "PAssign",
+                                                              "contents": [
+                                                                [
+                                                                  "x",
+                                                                  {
+                                                                    "tag": "SInt"
+                                                                  },
+                                                                  {
+                                                                    "tag": "Var",
+                                                                    "contents": [
+                                                                      "__tmp_x",
+                                                                      {
+                                                                        "tag": "SInt"
+                                                                      }
+                                                                    ]
+                                                                  }
+                                                                ]
+                                                              ]
+                                                            },
+                                                            {
+                                                              "tag": "Break"
+                                                            }
+                                                          ]
+                                                        }
+                                                      ]
+                                                    },
+                                                    {
+                                                      "tag": "Cond",
+                                                      "contents": [
+                                                        {
+                                                          "tag": "Func",
+                                                          "contents": [
+                                                            {
+                                                              "tag": "FOr"
+                                                            },
+                                                            [
+                                                              {
+                                                                "tag": "Func",
+                                                                "contents": [
+                                                                  {
+                                                                    "tag": "FAnd"
+                                                                  },
+                                                                  [
+                                                                    {
+                                                                      "tag": "Func",
+                                                                      "contents": [
+                                                                        {
+                                                                          "tag": "FLte"
+                                                                        },
+                                                                        [
+                                                                          {
+                                                                            "tag": "Const",
+                                                                            "contents": {
+                                                                              "tag": "CInt",
+                                                                              "contents": 1
+                                                                            }
+                                                                          },
+                                                                          {
+                                                                            "tag": "Var",
+                                                                            "contents": [
+                                                                              "x",
+                                                                              {
+                                                                                "tag": "SInt"
+                                                                              }
+                                                                            ]
+                                                                          }
+                                                                        ]
+                                                                      ]
+                                                                    },
+                                                                    {
+                                                                      "tag": "Func",
+                                                                      "contents": [
+                                                                        {
+                                                                          "tag": "FAnd"
+                                                                        },
+                                                                        [
+                                                                          {
+                                                                            "tag": "Func",
+                                                                            "contents": [
+                                                                              {
+                                                                                "tag": "FLt"
+                                                                              },
+                                                                              [
+                                                                                {
+                                                                                  "tag": "Var",
+                                                                                  "contents": [
+                                                                                    "x",
+                                                                                    {
+                                                                                      "tag": "SInt"
+                                                                                    }
+                                                                                  ]
+                                                                                },
+                                                                                {
+                                                                                  "tag": "Const",
+                                                                                  "contents": {
+                                                                                    "tag": "CInt",
+                                                                                    "contents": 11
+                                                                                  }
+                                                                                }
+                                                                              ]
+                                                                            ]
+                                                                          },
+                                                                          {
+                                                                            "tag": "Func",
+                                                                            "contents": [
+                                                                              {
+                                                                                "tag": "FAnd"
+                                                                              },
+                                                                              [
+                                                                                {
+                                                                                  "tag": "Func",
+                                                                                  "contents": [
+                                                                                    {
+                                                                                      "tag": "FLte"
+                                                                                    },
+                                                                                    [
+                                                                                      {
+                                                                                        "tag": "Const",
+                                                                                        "contents": {
+                                                                                          "tag": "CInt",
+                                                                                          "contents": 1
+                                                                                        }
+                                                                                      },
+                                                                                      {
+                                                                                        "tag": "Var",
+                                                                                        "contents": [
+                                                                                          "init_x",
+                                                                                          {
+                                                                                            "tag": "SInt"
+                                                                                          }
+                                                                                        ]
+                                                                                      }
+                                                                                    ]
+                                                                                  ]
+                                                                                },
+                                                                                {
+                                                                                  "tag": "Func",
+                                                                                  "contents": [
+                                                                                    {
+                                                                                      "tag": "FLte"
+                                                                                    },
+                                                                                    [
+                                                                                      {
+                                                                                        "tag": "Const",
+                                                                                        "contents": {
+                                                                                          "tag": "CInt",
+                                                                                          "contents": 0
+                                                                                        }
+                                                                                      },
+                                                                                      {
+                                                                                        "tag": "Func",
+                                                                                        "contents": [
+                                                                                          {
+                                                                                            "tag": "FAdd"
+                                                                                          },
+                                                                                          [
+                                                                                            {
+                                                                                              "tag": "Var",
+                                                                                              "contents": [
+                                                                                                "init_x",
+                                                                                                {
+                                                                                                  "tag": "SInt"
+                                                                                                }
+                                                                                              ]
+                                                                                            },
+                                                                                            {
+                                                                                              "tag": "Func",
+                                                                                              "contents": [
+                                                                                                {
+                                                                                                  "tag": "FMul"
+                                                                                                },
+                                                                                                [
+                                                                                                  {
+                                                                                                    "tag": "Const",
+                                                                                                    "contents": {
+                                                                                                      "tag": "CInt",
+                                                                                                      "contents": -1
+                                                                                                    }
+                                                                                                  },
+                                                                                                  {
+                                                                                                    "tag": "Var",
+                                                                                                    "contents": [
+                                                                                                      "x",
+                                                                                                      {
+                                                                                                        "tag": "SInt"
+                                                                                                      }
+                                                                                                    ]
+                                                                                                  }
+                                                                                                ]
+                                                                                              ]
+                                                                                            }
+                                                                                          ]
+                                                                                        ]
+                                                                                      }
+                                                                                    ]
+                                                                                  ]
+                                                                                }
+                                                                              ]
+                                                                            ]
+                                                                          }
+                                                                        ]
+                                                                      ]
+                                                                    }
+                                                                  ]
+                                                                ]
+                                                              },
+                                                              {
+                                                                "tag": "Func",
+                                                                "contents": [
+                                                                  {
+                                                                    "tag": "FEq"
+                                                                  },
+                                                                  [
+                                                                    {
+                                                                      "tag": "Var",
+                                                                      "contents": [
+                                                                        "x",
+                                                                        {
+                                                                          "tag": "SInt"
+                                                                        }
+                                                                      ]
+                                                                    },
+                                                                    {
+                                                                      "tag": "Const",
+                                                                      "contents": {
+                                                                        "tag": "CInt",
+                                                                        "contents": 1
+                                                                      }
+                                                                    }
+                                                                  ]
+                                                                ]
+                                                              }
+                                                            ]
+                                                          ]
+                                                        },
+                                                        {
+                                                          "tag": "Sequence",
+                                                          "contents": [
+                                                            {
+                                                              "tag": "Read"
+                                                            },
+                                                            {
+                                                              "tag": "PAssign",
+                                                              "contents": [
+                                                                [
+                                                                  "__tmp_prog_counter",
+                                                                  {
+                                                                    "tag": "SInt"
+                                                                  },
+                                                                  {
+                                                                    "tag": "Const",
+                                                                    "contents": {
+                                                                      "tag": "CInt",
+                                                                      "contents": 2
+                                                                    }
+                                                                  }
+                                                                ]
+                                                              ]
+                                                            },
+                                                            {
+                                                              "tag": "Cond",
+                                                              "contents": [
+                                                                {
+                                                                  "tag": "Func",
+                                                                  "contents": [
+                                                                    {
+                                                                      "tag": "FEq"
+                                                                    },
+                                                                    [
+                                                                      {
+                                                                        "tag": "Var",
+                                                                        "contents": [
+                                                                          "x",
+                                                                          {
+                                                                            "tag": "SInt"
+                                                                          }
+                                                                        ]
+                                                                      },
+                                                                      {
+                                                                        "tag": "Const",
+                                                                        "contents": {
+                                                                          "tag": "CInt",
+                                                                          "contents": 1
+                                                                        }
+                                                                      }
+                                                                    ]
+                                                                  ]
+                                                                },
+                                                                {
+                                                                  "tag": "PAssign",
+                                                                  "contents": [
+                                                                    [
+                                                                      "__tmp_x",
+                                                                      {
+                                                                        "tag": "SInt"
+                                                                      },
+                                                                      {
+                                                                        "tag": "Const",
+                                                                        "contents": {
+                                                                          "tag": "CInt",
+                                                                          "contents": 0
+                                                                        }
+                                                                      }
+                                                                    ]
+                                                                  ]
+                                                                }
+                                                              ]
+                                                            },
+                                                            {
+                                                              "tag": "Cond",
+                                                              "contents": [
+                                                                {
+                                                                  "tag": "Func",
+                                                                  "contents": [
+                                                                    {
+                                                                      "tag": "FNot"
+                                                                    },
+                                                                    [
+                                                                      {
+                                                                        "tag": "Func",
+                                                                        "contents": [
+                                                                          {
+                                                                            "tag": "FEq"
+                                                                          },
+                                                                          [
+                                                                            {
+                                                                              "tag": "Var",
+                                                                              "contents": [
+                                                                                "x",
+                                                                                {
+                                                                                  "tag": "SInt"
+                                                                                }
+                                                                              ]
+                                                                            },
+                                                                            {
+                                                                              "tag": "Const",
+                                                                              "contents": {
+                                                                                "tag": "CInt",
+                                                                                "contents": 1
+                                                                              }
+                                                                            }
+                                                                          ]
+                                                                        ]
+                                                                      }
+                                                                    ]
+                                                                  ]
+                                                                },
+                                                                {
+                                                                  "tag": "Sequence",
+                                                                  "contents": [
+                                                                    {
+                                                                      "tag": "Cond",
+                                                                      "contents": [
+                                                                        {
+                                                                          "tag": "Func",
+                                                                          "contents": [
+                                                                            {
+                                                                              "tag": "FAnd"
+                                                                            },
+                                                                            [
+                                                                              {
+                                                                                "tag": "Func",
+                                                                                "contents": [
+                                                                                  {
+                                                                                    "tag": "FLte"
+                                                                                  },
+                                                                                  [
+                                                                                    {
+                                                                                      "tag": "Const",
+                                                                                      "contents": {
+                                                                                        "tag": "CInt",
+                                                                                        "contents": 1
+                                                                                      }
+                                                                                    },
+                                                                                    {
+                                                                                      "tag": "Var",
+                                                                                      "contents": [
+                                                                                        "x",
+                                                                                        {
+                                                                                          "tag": "SInt"
+                                                                                        }
+                                                                                      ]
+                                                                                    }
+                                                                                  ]
+                                                                                ]
+                                                                              },
+                                                                              {
+                                                                                "tag": "Func",
+                                                                                "contents": [
+                                                                                  {
+                                                                                    "tag": "FAnd"
+                                                                                  },
+                                                                                  [
+                                                                                    {
+                                                                                      "tag": "Func",
+                                                                                      "contents": [
+                                                                                        {
+                                                                                          "tag": "FLt"
+                                                                                        },
+                                                                                        [
+                                                                                          {
+                                                                                            "tag": "Var",
+                                                                                            "contents": [
+                                                                                              "x",
+                                                                                              {
+                                                                                                "tag": "SInt"
+                                                                                              }
+                                                                                            ]
+                                                                                          },
+                                                                                          {
+                                                                                            "tag": "Const",
+                                                                                            "contents": {
+                                                                                              "tag": "CInt",
+                                                                                              "contents": 10
+                                                                                            }
+                                                                                          }
+                                                                                        ]
+                                                                                      ]
+                                                                                    },
+                                                                                    {
+                                                                                      "tag": "Func",
+                                                                                      "contents": [
+                                                                                        {
+                                                                                          "tag": "FLte"
+                                                                                        },
+                                                                                        [
+                                                                                          {
+                                                                                            "tag": "Const",
+                                                                                            "contents": {
+                                                                                              "tag": "CInt",
+                                                                                              "contents": 2
+                                                                                            }
+                                                                                          },
+                                                                                          {
+                                                                                            "tag": "Func",
+                                                                                            "contents": [
+                                                                                              {
+                                                                                                "tag": "FAdd"
+                                                                                              },
+                                                                                              [
+                                                                                                {
+                                                                                                  "tag": "Var",
+                                                                                                  "contents": [
+                                                                                                    "init_x",
+                                                                                                    {
+                                                                                                      "tag": "SInt"
+                                                                                                    }
+                                                                                                  ]
+                                                                                                },
+                                                                                                {
+                                                                                                  "tag": "Func",
+                                                                                                  "contents": [
+                                                                                                    {
+                                                                                                      "tag": "FMul"
+                                                                                                    },
+                                                                                                    [
+                                                                                                      {
+                                                                                                        "tag": "Const",
+                                                                                                        "contents": {
+                                                                                                          "tag": "CInt",
+                                                                                                          "contents": -1
+                                                                                                        }
+                                                                                                      },
+                                                                                                      {
+                                                                                                        "tag": "Var",
+                                                                                                        "contents": [
+                                                                                                          "x",
+                                                                                                          {
+                                                                                                            "tag": "SInt"
+                                                                                                          }
+                                                                                                        ]
+                                                                                                      }
+                                                                                                    ]
+                                                                                                  ]
+                                                                                                }
+                                                                                              ]
+                                                                                            ]
+                                                                                          }
+                                                                                        ]
+                                                                                      ]
+                                                                                    }
+                                                                                  ]
+                                                                                ]
+                                                                              }
+                                                                            ]
+                                                                          ]
+                                                                        },
+                                                                        {
+                                                                          "tag": "PAssign",
+                                                                          "contents": [
+                                                                            [
+                                                                              "__tmp_x",
+                                                                              {
+                                                                                "tag": "SInt"
+                                                                              },
+                                                                              {
+                                                                                "tag": "Func",
+                                                                                "contents": [
+                                                                                  {
+                                                                                    "tag": "FAdd"
+                                                                                  },
+                                                                                  [
+                                                                                    {
+                                                                                      "tag": "Var",
+                                                                                      "contents": [
+                                                                                        "x",
+                                                                                        {
+                                                                                          "tag": "SInt"
+                                                                                        }
+                                                                                      ]
+                                                                                    },
+                                                                                    {
+                                                                                      "tag": "Const",
+                                                                                      "contents": {
+                                                                                        "tag": "CInt",
+                                                                                        "contents": 1
+                                                                                      }
+                                                                                    }
+                                                                                  ]
+                                                                                ]
+                                                                              }
+                                                                            ]
+                                                                          ]
+                                                                        }
+                                                                      ]
+                                                                    },
+                                                                    {
+                                                                      "tag": "Cond",
+                                                                      "contents": [
+                                                                        {
+                                                                          "tag": "Func",
+                                                                          "contents": [
+                                                                            {
+                                                                              "tag": "FNot"
+                                                                            },
+                                                                            [
+                                                                              {
+                                                                                "tag": "Func",
+                                                                                "contents": [
+                                                                                  {
+                                                                                    "tag": "FAnd"
+                                                                                  },
+                                                                                  [
+                                                                                    {
+                                                                                      "tag": "Func",
+                                                                                      "contents": [
+                                                                                        {
+                                                                                          "tag": "FLte"
+                                                                                        },
+                                                                                        [
+                                                                                          {
+                                                                                            "tag": "Const",
+                                                                                            "contents": {
+                                                                                              "tag": "CInt",
+                                                                                              "contents": 1
+                                                                                            }
+                                                                                          },
+                                                                                          {
+                                                                                            "tag": "Var",
+                                                                                            "contents": [
+                                                                                              "x",
+                                                                                              {
+                                                                                                "tag": "SInt"
+                                                                                              }
+                                                                                            ]
+                                                                                          }
+                                                                                        ]
+                                                                                      ]
+                                                                                    },
+                                                                                    {
+                                                                                      "tag": "Func",
+                                                                                      "contents": [
+                                                                                        {
+                                                                                          "tag": "FAnd"
+                                                                                        },
+                                                                                        [
+                                                                                          {
+                                                                                            "tag": "Func",
+                                                                                            "contents": [
+                                                                                              {
+                                                                                                "tag": "FLt"
+                                                                                              },
+                                                                                              [
+                                                                                                {
+                                                                                                  "tag": "Var",
+                                                                                                  "contents": [
+                                                                                                    "x",
+                                                                                                    {
+                                                                                                      "tag": "SInt"
+                                                                                                    }
+                                                                                                  ]
+                                                                                                },
+                                                                                                {
+                                                                                                  "tag": "Const",
+                                                                                                  "contents": {
+                                                                                                    "tag": "CInt",
+                                                                                                    "contents": 10
+                                                                                                  }
+                                                                                                }
+                                                                                              ]
+                                                                                            ]
+                                                                                          },
+                                                                                          {
+                                                                                            "tag": "Func",
+                                                                                            "contents": [
+                                                                                              {
+                                                                                                "tag": "FLte"
+                                                                                              },
+                                                                                              [
+                                                                                                {
+                                                                                                  "tag": "Const",
+                                                                                                  "contents": {
+                                                                                                    "tag": "CInt",
+                                                                                                    "contents": 2
+                                                                                                  }
+                                                                                                },
+                                                                                                {
+                                                                                                  "tag": "Func",
+                                                                                                  "contents": [
+                                                                                                    {
+                                                                                                      "tag": "FAdd"
+                                                                                                    },
+                                                                                                    [
+                                                                                                      {
+                                                                                                        "tag": "Var",
+                                                                                                        "contents": [
+                                                                                                          "init_x",
+                                                                                                          {
+                                                                                                            "tag": "SInt"
+                                                                                                          }
+                                                                                                        ]
+                                                                                                      },
+                                                                                                      {
+                                                                                                        "tag": "Func",
+                                                                                                        "contents": [
+                                                                                                          {
+                                                                                                            "tag": "FMul"
+                                                                                                          },
+                                                                                                          [
+                                                                                                            {
+                                                                                                              "tag": "Const",
+                                                                                                              "contents": {
+                                                                                                                "tag": "CInt",
+                                                                                                                "contents": -1
+                                                                                                              }
+                                                                                                            },
+                                                                                                            {
+                                                                                                              "tag": "Var",
+                                                                                                              "contents": [
+                                                                                                                "x",
+                                                                                                                {
+                                                                                                                  "tag": "SInt"
+                                                                                                                }
+                                                                                                              ]
+                                                                                                            }
+                                                                                                          ]
+                                                                                                        ]
+                                                                                                      }
+                                                                                                    ]
+                                                                                                  ]
+                                                                                                }
+                                                                                              ]
+                                                                                            ]
+                                                                                          }
+                                                                                        ]
+                                                                                      ]
+                                                                                    }
+                                                                                  ]
+                                                                                ]
+                                                                              }
+                                                                            ]
+                                                                          ]
+                                                                        },
+                                                                        {
+                                                                          "tag": "PAssign",
+                                                                          "contents": [
+                                                                            [
+                                                                              "__tmp_x",
+                                                                              {
+                                                                                "tag": "SInt"
+                                                                              },
+                                                                              {
+                                                                                "tag": "Func",
+                                                                                "contents": [
+                                                                                  {
+                                                                                    "tag": "FAdd"
+                                                                                  },
+                                                                                  [
+                                                                                    {
+                                                                                      "tag": "Const",
+                                                                                      "contents": {
+                                                                                        "tag": "CInt",
+                                                                                        "contents": -1
+                                                                                      }
+                                                                                    },
+                                                                                    {
+                                                                                      "tag": "Var",
+                                                                                      "contents": [
+                                                                                        "x",
+                                                                                        {
+                                                                                          "tag": "SInt"
+                                                                                        }
+                                                                                      ]
+                                                                                    }
+                                                                                  ]
+                                                                                ]
+                                                                              }
+                                                                            ]
+                                                                          ]
+                                                                        }
+                                                                      ]
+                                                                    }
+                                                                  ]
+                                                                }
+                                                              ]
+                                                            },
+                                                            {
+                                                              "tag": "PAssign",
+                                                              "contents": [
+                                                                [
+                                                                  "init_x",
+                                                                  {
+                                                                    "tag": "SInt"
+                                                                  },
+                                                                  {
+                                                                    "tag": "Var",
+                                                                    "contents": [
+                                                                      "__tmp_init_x",
+                                                                      {
+                                                                        "tag": "SInt"
+                                                                      }
+                                                                    ]
+                                                                  }
+                                                                ]
+                                                              ]
+                                                            },
+                                                            {
+                                                              "tag": "PAssign",
+                                                              "contents": [
+                                                                [
+                                                                  "prog_counter",
+                                                                  {
+                                                                    "tag": "SInt"
+                                                                  },
+                                                                  {
+                                                                    "tag": "Var",
+                                                                    "contents": [
+                                                                      "__tmp_prog_counter",
+                                                                      {
+                                                                        "tag": "SInt"
+                                                                      }
+                                                                    ]
+                                                                  }
+                                                                ]
+                                                              ]
+                                                            },
+                                                            {
+                                                              "tag": "PAssign",
+                                                              "contents": [
+                                                                [
+                                                                  "x",
+                                                                  {
+                                                                    "tag": "SInt"
+                                                                  },
+                                                                  {
+                                                                    "tag": "Var",
+                                                                    "contents": [
+                                                                      "__tmp_x",
+                                                                      {
+                                                                        "tag": "SInt"
+                                                                      }
+                                                                    ]
+                                                                  }
+                                                                ]
+                                                              ]
+                                                            },
+                                                            {
+                                                              "tag": "Continue"
+                                                            }
+                                                          ]
+                                                        }
+                                                      ]
+                                                    },
+                                                    {
+                                                      "tag": "PAssign",
+                                                      "contents": [
+                                                        [
+                                                          "init_x",
+                                                          {
+                                                            "tag": "SInt"
+                                                          },
+                                                          {
+                                                            "tag": "Var",
+                                                            "contents": [
+                                                              "__tmp_init_x",
+                                                              {
+                                                                "tag": "SInt"
+                                                              }
+                                                            ]
+                                                          }
+                                                        ]
+                                                      ]
+                                                    },
+                                                    {
+                                                      "tag": "PAssign",
+                                                      "contents": [
+                                                        [
+                                                          "prog_counter",
+                                                          {
+                                                            "tag": "SInt"
+                                                          },
+                                                          {
+                                                            "tag": "Var",
+                                                            "contents": [
+                                                              "__tmp_prog_counter",
+                                                              {
+                                                                "tag": "SInt"
+                                                              }
+                                                            ]
+                                                          }
+                                                        ]
+                                                      ]
+                                                    },
+                                                    {
+                                                      "tag": "PAssign",
+                                                      "contents": [
+                                                        [
+                                                          "x",
+                                                          {
+                                                            "tag": "SInt"
+                                                          },
+                                                          {
+                                                            "tag": "Var",
+                                                            "contents": [
+                                                              "__tmp_x",
+                                                              {
+                                                                "tag": "SInt"
+                                                              }
+                                                            ]
+                                                          }
+                                                        ]
+                                                      ]
+                                                    },
+                                                    {
+                                                      "tag": "Continue"
+                                                    }
+                                                  ]
+                                                }
+                                              ]
+                                            },
+                                            {
+                                              "tag": "Case",
+                                              "contents": [
+                                                2,
+                                                {
+                                                  "tag": "Sequence",
+                                                  "contents": [
+                                                    {
+                                                      "tag": "PAssign",
+                                                      "contents": [
+                                                        [
+                                                          "__tmp_init_x",
+                                                          {
+                                                            "tag": "SInt"
+                                                          },
+                                                          {
+                                                            "tag": "Var",
+                                                            "contents": [
+                                                              "init_x",
+                                                              {
+                                                                "tag": "SInt"
+                                                              }
+                                                            ]
+                                                          }
+                                                        ]
+                                                      ]
+                                                    },
+                                                    {
+                                                      "tag": "PAssign",
+                                                      "contents": [
+                                                        [
+                                                          "__tmp_prog_counter",
+                                                          {
+                                                            "tag": "SInt"
+                                                          },
+                                                          {
+                                                            "tag": "Var",
+                                                            "contents": [
+                                                              "prog_counter",
+                                                              {
+                                                                "tag": "SInt"
+                                                              }
+                                                            ]
+                                                          }
+                                                        ]
+                                                      ]
+                                                    },
+                                                    {
+                                                      "tag": "PAssign",
+                                                      "contents": [
+                                                        [
+                                                          "__tmp_x",
+                                                          {
+                                                            "tag": "SInt"
+                                                          },
+                                                          {
+                                                            "tag": "Var",
+                                                            "contents": [
+                                                              "x",
+                                                              {
+                                                                "tag": "SInt"
+                                                              }
+                                                            ]
+                                                          }
+                                                        ]
+                                                      ]
+                                                    },
+                                                    {
+                                                      "tag": "PAssign",
+                                                      "contents": [
+                                                        [
+                                                          "__tmp_prog_counter",
+                                                          {
+                                                            "tag": "SInt"
+                                                          },
+                                                          {
+                                                            "tag": "Const",
+                                                            "contents": {
+                                                              "tag": "CInt",
+                                                              "contents": 0
+                                                            }
+                                                          }
+                                                        ]
+                                                      ]
+                                                    },
+                                                    {
+                                                      "tag": "PAssign",
+                                                      "contents": [
+                                                        [
+                                                          "init_x",
+                                                          {
+                                                            "tag": "SInt"
+                                                          },
+                                                          {
+                                                            "tag": "Var",
+                                                            "contents": [
+                                                              "__tmp_init_x",
+                                                              {
+                                                                "tag": "SInt"
+                                                              }
+                                                            ]
+                                                          }
+                                                        ]
+                                                      ]
+                                                    },
+                                                    {
+                                                      "tag": "PAssign",
+                                                      "contents": [
+                                                        [
+                                                          "prog_counter",
+                                                          {
+                                                            "tag": "SInt"
+                                                          },
+                                                          {
+                                                            "tag": "Var",
+                                                            "contents": [
+                                                              "__tmp_prog_counter",
+                                                              {
+                                                                "tag": "SInt"
+                                                              }
+                                                            ]
+                                                          }
+                                                        ]
+                                                      ]
+                                                    },
+                                                    {
+                                                      "tag": "PAssign",
+                                                      "contents": [
+                                                        [
+                                                          "x",
+                                                          {
+                                                            "tag": "SInt"
+                                                          },
+                                                          {
+                                                            "tag": "Var",
+                                                            "contents": [
+                                                              "__tmp_x",
+                                                              {
+                                                                "tag": "SInt"
+                                                              }
+                                                            ]
+                                                          }
+                                                        ]
+                                                      ]
+                                                    },
+                                                    {
+                                                      "tag": "Continue"
+                                                    }
+                                                  ]
+                                                }
+                                              ]
+                                            },
+                                            {
+                                              "tag": "Default",
+                                              "contents": {
+                                                "tag": "Sequence",
+                                                "contents": [
+                                                  {
+                                                    "tag": "Abort"
+                                                  }
+                                                ]
+                                              }
+                                            }
+                                          ]
+                                        ]
+                                      }
+                                    },
+                                    {
+                                      "tag": "PAssign",
+                                      "contents": [
+                                        [
+                                          "init_x",
+                                          {
+                                            "tag": "SInt"
+                                          },
+                                          {
+                                            "tag": "Var",
+                                            "contents": [
+                                              "__tmp_init_x",
+                                              {
+                                                "tag": "SInt"
+                                              }
+                                            ]
+                                          }
+                                        ]
+                                      ]
+                                    },
+                                    {
+                                      "tag": "PAssign",
+                                      "contents": [
+                                        [
+                                          "prog_counter",
+                                          {
+                                            "tag": "SInt"
+                                          },
+                                          {
+                                            "tag": "Var",
+                                            "contents": [
+                                              "__tmp_prog_counter",
+                                              {
+                                                "tag": "SInt"
+                                              }
+                                            ]
+                                          }
+                                        ]
+                                      ]
+                                    },
+                                    {
+                                      "tag": "PAssign",
+                                      "contents": [
+                                        [
+                                          "x",
+                                          {
+                                            "tag": "SInt"
+                                          },
+                                          {
+                                            "tag": "Var",
+                                            "contents": [
+                                              "__tmp_x",
+                                              {
+                                                "tag": "SInt"
+                                              }
+                                            ]
+                                          }
+                                        ]
+                                      ]
+                                    },
+                                    {
+                                      "tag": "Continue"
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "tag": "Case",
+                              "contents": [
+                                1,
+                                {
+                                  "tag": "Sequence",
+                                  "contents": [
+                                    {
+                                      "tag": "PAssign",
+                                      "contents": [
+                                        [
+                                          "__tmp_init_x",
+                                          {
+                                            "tag": "SInt"
+                                          },
+                                          {
+                                            "tag": "Var",
+                                            "contents": [
+                                              "init_x",
+                                              {
+                                                "tag": "SInt"
+                                              }
+                                            ]
+                                          }
+                                        ]
+                                      ]
+                                    },
+                                    {
+                                      "tag": "PAssign",
+                                      "contents": [
+                                        [
+                                          "__tmp_prog_counter",
+                                          {
+                                            "tag": "SInt"
+                                          },
+                                          {
+                                            "tag": "Var",
+                                            "contents": [
+                                              "prog_counter",
+                                              {
+                                                "tag": "SInt"
+                                              }
+                                            ]
+                                          }
+                                        ]
+                                      ]
+                                    },
+                                    {
+                                      "tag": "PAssign",
+                                      "contents": [
+                                        [
+                                          "__tmp_x",
+                                          {
+                                            "tag": "SInt"
+                                          },
+                                          {
+                                            "tag": "Var",
+                                            "contents": [
+                                              "x",
+                                              {
+                                                "tag": "SInt"
+                                              }
+                                            ]
+                                          }
+                                        ]
+                                      ]
+                                    },
+                                    {
+                                      "tag": "PAssign",
+                                      "contents": [
+                                        [
+                                          "init_x",
+                                          {
+                                            "tag": "SInt"
+                                          },
+                                          {
+                                            "tag": "Var",
+                                            "contents": [
+                                              "__tmp_init_x",
+                                              {
+                                                "tag": "SInt"
+                                              }
+                                            ]
+                                          }
+                                        ]
+                                      ]
+                                    },
+                                    {
+                                      "tag": "PAssign",
+                                      "contents": [
+                                        [
+                                          "prog_counter",
+                                          {
+                                            "tag": "SInt"
+                                          },
+                                          {
+                                            "tag": "Var",
+                                            "contents": [
+                                              "__tmp_prog_counter",
+                                              {
+                                                "tag": "SInt"
+                                              }
+                                            ]
+                                          }
+                                        ]
+                                      ]
+                                    },
+                                    {
+                                      "tag": "PAssign",
+                                      "contents": [
+                                        [
+                                          "x",
+                                          {
+                                            "tag": "SInt"
+                                          },
+                                          {
+                                            "tag": "Var",
+                                            "contents": [
+                                              "__tmp_x",
+                                              {
+                                                "tag": "SInt"
+                                              }
+                                            ]
+                                          }
+                                        ]
+                                      ]
+                                    },
+                                    {
+                                      "tag": "Break"
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "tag": "Default",
+                              "contents": {
+                                "tag": "Sequence",
+                                "contents": [
+                                  {
+                                    "tag": "Abort"
+                                  }
+                                ]
+                              }
+                            }
+                          ]
+                        ]
+                      }
+                    },
+                    {
+                      "tag": "PAssign",
+                      "contents": [
+                        [
+                          "init_x",
+                          {
+                            "tag": "SInt"
+                          },
+                          {
+                            "tag": "Var",
+                            "contents": [
+                              "__tmp_init_x",
+                              {
+                                "tag": "SInt"
+                              }
+                            ]
+                          }
+                        ]
+                      ]
+                    },
+                    {
+                      "tag": "PAssign",
+                      "contents": [
+                        [
+                          "prog_counter",
+                          {
+                            "tag": "SInt"
+                          },
+                          {
+                            "tag": "Var",
+                            "contents": [
+                              "__tmp_prog_counter",
+                              {
+                                "tag": "SInt"
+                              }
+                            ]
+                          }
+                        ]
+                      ]
+                    },
+                    {
+                      "tag": "PAssign",
+                      "contents": [
+                        [
+                          "x",
+                          {
+                            "tag": "SInt"
+                          },
+                          {
+                            "tag": "Var",
+                            "contents": [
+                              "__tmp_x",
+                              {
+                                "tag": "SInt"
+                              }
+                            ]
+                          }
+                        ]
+                      ]
+                    },
+                    {
+                      "tag": "Continue"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "tag": "Case",
+              "contents": [
+                1,
+                {
+                  "tag": "Sequence",
+                  "contents": [
+                    {
+                      "tag": "PAssign",
+                      "contents": [
+                        [
+                          "__tmp_init_x",
+                          {
+                            "tag": "SInt"
+                          },
+                          {
+                            "tag": "Var",
+                            "contents": [
+                              "init_x",
+                              {
+                                "tag": "SInt"
+                              }
+                            ]
+                          }
+                        ]
+                      ]
+                    },
+                    {
+                      "tag": "PAssign",
+                      "contents": [
+                        [
+                          "__tmp_prog_counter",
+                          {
+                            "tag": "SInt"
+                          },
+                          {
+                            "tag": "Var",
+                            "contents": [
+                              "prog_counter",
+                              {
+                                "tag": "SInt"
+                              }
+                            ]
+                          }
+                        ]
+                      ]
+                    },
+                    {
+                      "tag": "PAssign",
+                      "contents": [
+                        [
+                          "__tmp_x",
+                          {
+                            "tag": "SInt"
+                          },
+                          {
+                            "tag": "Var",
+                            "contents": [
+                              "x",
+                              {
+                                "tag": "SInt"
+                              }
+                            ]
+                          }
+                        ]
+                      ]
+                    },
+                    {
+                      "tag": "Read"
+                    },
+                    {
+                      "tag": "PAssign",
+                      "contents": [
+                        [
+                          "__tmp_prog_counter",
+                          {
+                            "tag": "SInt"
+                          },
+                          {
+                            "tag": "Const",
+                            "contents": {
+                              "tag": "CInt",
+                              "contents": 1
+                            }
+                          }
+                        ]
+                      ]
+                    },
+                    {
+                      "tag": "PAssign",
+                      "contents": [
+                        [
+                          "__tmp_x",
+                          {
+                            "tag": "SInt"
+                          },
+                          {
+                            "tag": "Const",
+                            "contents": {
+                              "tag": "CInt",
+                              "contents": 0
+                            }
+                          }
+                        ]
+                      ]
+                    },
+                    {
+                      "tag": "PAssign",
+                      "contents": [
+                        [
+                          "init_x",
+                          {
+                            "tag": "SInt"
+                          },
+                          {
+                            "tag": "Var",
+                            "contents": [
+                              "__tmp_init_x",
+                              {
+                                "tag": "SInt"
+                              }
+                            ]
+                          }
+                        ]
+                      ]
+                    },
+                    {
+                      "tag": "PAssign",
+                      "contents": [
+                        [
+                          "prog_counter",
+                          {
+                            "tag": "SInt"
+                          },
+                          {
+                            "tag": "Var",
+                            "contents": [
+                              "__tmp_prog_counter",
+                              {
+                                "tag": "SInt"
+                              }
+                            ]
+                          }
+                        ]
+                      ]
+                    },
+                    {
+                      "tag": "PAssign",
+                      "contents": [
+                        [
+                          "x",
+                          {
+                            "tag": "SInt"
+                          },
+                          {
+                            "tag": "Var",
+                            "contents": [
+                              "__tmp_x",
+                              {
+                                "tag": "SInt"
+                              }
+                            ]
+                          }
+                        ]
+                      ]
+                    },
+                    {
+                      "tag": "Continue"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "tag": "Default",
+              "contents": {
+                "tag": "Sequence",
+                "contents": [
+                  {
+                    "tag": "Abort"
+                  }
+                ]
+              }
+            }
+          ]
+        ]
+      }
+    }
+  ]
+}

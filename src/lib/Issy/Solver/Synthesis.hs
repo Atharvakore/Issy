@@ -310,6 +310,7 @@ generateCProg conf init sybo = do
 ---------------------------------------------------------------------------------------------------
 --My Additions
 ---------------------------------------------------------------------------------------------------
+{-
 optimizeProgWithEgglog :: Prog -> IO Prog
 optimizeProgWithEgglog prog = do
     encodeFile "ast.json" prog
@@ -323,7 +324,27 @@ optimizeProgWithEgglog prog = do
         error ("Failed to parse optimized Prog: " ++ err)
 
       Right optimizedProg ->
-        pure optimizedProg
+        pure optimizedProg-}
+optimizeProgWithEgglog :: Prog -> IO Prog
+optimizeProgWithEgglog prog = do
+    -- 1. Write original AST
+    encodeFile "ast.json" prog
+
+    -- 2. Run Egglog optimizer
+    callProcess "python3" ["optimizer_simple_egglog.py"]
+
+    -- 3. Run control-flow flattener on optimized AST
+    callProcess "python3" ["flattener.py"]
+
+    -- 4. Read final flattened AST
+    result <- eitherDecodeFileStrict "flattened_ast.json"
+
+    case result of
+      Left err ->
+        error ("Failed to parse flattened Prog: " ++ err)
+
+      Right flattenedProg ->
+        pure flattenedProg        
 ---------------------------------------------------------------------------------------------------
 --Having Prog Data struct as Json 
 ---------------------------------------------------------------------------------------------------
