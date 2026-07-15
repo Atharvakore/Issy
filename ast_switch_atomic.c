@@ -1,147 +1,176 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-static void READ(void) {
-    int ignored;
-    (void)scanf("%d", &ignored);
+// Mock read function to handle the "Read" tag in the AST
+void read_input(void) {
+    // Implement read logic or user input here if needed
 }
 
 int main(void) {
-    int __tmp_init_x = 0;
-    int __tmp_prog_counter = 0;
-    int __tmp_x = 0;
-    int init_x = 0;
-    int prog_counter = 0;
-    int x = 0;
-    
+    // Declarations
+    int __tmp_init_x;
+    int __tmp_init_x__lift_1;
+    int __tmp_prog_counter;
+    int __tmp_x;
+    int prog_counter;
+    int init_x;
+    int init_x__lift_1;
+    int x; // Declared to handle assignments to 'x'
+
+    // Initializations
     prog_counter = 0;
     x = 10;
+
+    // Outer Infinite Loop
     while (1) {
         switch (prog_counter) {
             case 0: {
                 __tmp_init_x = init_x;
+                __tmp_init_x__lift_1 = init_x__lift_1;
                 __tmp_prog_counter = prog_counter;
                 __tmp_x = x;
+
+                // Inner Infinite Loop 1
                 while (1) {
                     switch (prog_counter) {
                         case 0: {
                             __tmp_init_x = init_x;
+                            __tmp_init_x__lift_1 = init_x__lift_1;
                             __tmp_prog_counter = prog_counter;
                             __tmp_x = x;
+
                             if (x == 0) {
-                                READ();
+                                read_input();
                                 __tmp_prog_counter = 1;
                                 init_x = __tmp_init_x;
+                                init_x__lift_1 = __tmp_init_x__lift_1;
                                 prog_counter = __tmp_prog_counter;
                                 x = __tmp_x;
                                 continue;
                             }
+
+                            // Inner-Inner Infinite Loop
                             while (1) {
                                 switch (prog_counter) {
                                     case 0: {
                                         __tmp_init_x = init_x;
+                                        __tmp_init_x__lift_1 = init_x__lift_1;
                                         __tmp_prog_counter = prog_counter;
                                         __tmp_x = x;
+
                                         __tmp_init_x = x;
+
                                         if (x == 0) {
                                             __tmp_prog_counter = 0;
                                             init_x = __tmp_init_x;
+                                            init_x__lift_1 = __tmp_init_x__lift_1;
                                             prog_counter = __tmp_prog_counter;
                                             x = __tmp_x;
-                                            goto after_loop_3;
+                                            break; // Breaks out of Inner-Inner Loop
                                         }
-                                        if (((1 <= x) && ((x < 11) && ((1 <= init_x) && (0 <= (init_x + (-1 * x)))))) || (x == 1)) {
-                                            READ();
+
+                                        // Nested logic conditions decoded from Func tags
+                                        if ((((1 <= x) && (x < 11)) && (1 <= init_x) && (0 <= (init_x + (-1 * x)))) || (x == 1)) {
+                                            read_input();
                                             __tmp_prog_counter = 2;
+
                                             if (x == 1) {
                                                 __tmp_x = 0;
                                             }
+
                                             if (!(x == 1)) {
-                                                if ((1 <= x) && ((x < 10) && (2 <= (init_x + (-1 * x))))) {
-                                                    __tmp_x = (x + 1);
+                                                if ((1 <= x) && (x < 10) && (2 <= (init_x + (-1 * x)))) {
+                                                    __tmp_x = x + 1;
                                                 }
-                                                if (!((1 <= x) && ((x < 10) && (2 <= (init_x + (-1 * x)))))) {
-                                                    __tmp_x = (-1 + x);
+                                                if (!((1 <= x) && (x < 10) && (2 <= (init_x + (-1 * x))))) {
+                                                    __tmp_x = -1 + x;
                                                 }
                                             }
+
                                             init_x = __tmp_init_x;
+                                            init_x__lift_1 = __tmp_init_x__lift_1;
                                             prog_counter = __tmp_prog_counter;
                                             x = __tmp_x;
                                             continue;
                                         }
+
                                         init_x = __tmp_init_x;
+                                        init_x__lift_1 = __tmp_init_x__lift_1;
                                         prog_counter = __tmp_prog_counter;
                                         x = __tmp_x;
                                         continue;
-                                        break;
                                     }
                                     case 2: {
                                         __tmp_init_x = init_x;
+                                        __tmp_init_x__lift_1 = init_x__lift_1;
                                         __tmp_prog_counter = prog_counter;
                                         __tmp_x = x;
+
                                         __tmp_prog_counter = 0;
+
                                         init_x = __tmp_init_x;
+                                        init_x__lift_1 = __tmp_init_x__lift_1;
                                         prog_counter = __tmp_prog_counter;
                                         x = __tmp_x;
                                         continue;
-                                        break;
                                     }
                                     default: {
                                         abort();
-                                        break;
                                     }
                                 }
-                            }
-                            after_loop_3: ;
+                            } // End Inner-Inner Loop
+
                             init_x = __tmp_init_x;
+                            init_x__lift_1 = __tmp_init_x__lift_1;
                             prog_counter = __tmp_prog_counter;
                             x = __tmp_x;
                             continue;
-                            break;
                         }
                         case 1: {
                             __tmp_init_x = init_x;
+                            __tmp_init_x__lift_1 = init_x__lift_1;
                             __tmp_prog_counter = prog_counter;
                             __tmp_x = x;
+
                             init_x = __tmp_init_x;
+                            init_x__lift_1 = __tmp_init_x__lift_1;
                             prog_counter = __tmp_prog_counter;
                             x = __tmp_x;
-                            goto after_loop_2;
-                            break;
+                            break; // Breaks out of Inner Loop 1
                         }
                         default: {
                             abort();
-                            break;
                         }
                     }
-                }
-                after_loop_2: ;
+                } // End Inner Loop 1
+
                 init_x = __tmp_init_x;
+                init_x__lift_1 = __tmp_init_x__lift_1;
                 prog_counter = __tmp_prog_counter;
                 x = __tmp_x;
                 continue;
-                break;
             }
             case 1: {
                 __tmp_init_x = init_x;
+                __tmp_init_x__lift_1 = init_x__lift_1;
                 __tmp_prog_counter = prog_counter;
                 __tmp_x = x;
-                READ();
+
+                read_input();
                 __tmp_prog_counter = 1;
                 __tmp_x = 0;
+
                 init_x = __tmp_init_x;
+                init_x__lift_1 = __tmp_init_x__lift_1;
                 prog_counter = __tmp_prog_counter;
                 x = __tmp_x;
                 continue;
-                break;
             }
             default: {
                 abort();
-                break;
             }
         }
     }
-    after_loop_1: ;
-    
+
     return 0;
 }

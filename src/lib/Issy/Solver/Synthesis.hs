@@ -337,7 +337,7 @@ optimizeProgWithEgglog prog = do
     callProcess "python3" ["flattener.py"]
 
     -- 4. Read final flattened AST
-    result <- eitherDecodeFileStrict "flattened_ast.json"
+    result <- eitherDecodeFileStrict "ast_switch_atomic.json"
 
     case result of
       Left err ->
