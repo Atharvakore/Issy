@@ -311,6 +311,20 @@ python3 tests/c_exhaustive.py --negative program.json ...
 python3 tests/e2e.py --exhaustive --prove            # real issy: both checks on every spec
 ```
 
+Many specifications at once (for example the 144 `.issy` files of
+[phheim/infinite-state-reactive-synthesis-benchmarks](https://github.com/phheim/infinite-state-reactive-synthesis-benchmarks),
+folder `benchmarks/`): `tests/batch_issy.py` runs `issy --solve --synt` on every file, each in its own folder
+(Issy writes `ast.json` there and starts `optimizer_simple_egglog.py` by its relative name), and keeps per
+specification the original and optimized C, the two ASTs, a diff, and one `ai_review.md` with everything in it.
+
+```
+python3 tests/batch_issy.py --spec-dir ../benchmarks/benchmarks --out-dir ../issy-batch --jobs 4 --timeout 300
+python3 tests/batch_issy.py --spec-dir ../benchmarks/benchmarks --out-dir ../issy-batch --jobs 4 --timeout 300 --resume --verify
+```
+
+The second call does not run Issy again; it adds the checks of 6.1 to every finished pair and writes the verdict
+(`proved`, `bounded`, `different`, `unverified`) to `manifest.csv` and `SUMMARY.md`. Only `proved` is a proof.
+
 ## 7. Code
 
 `optimizer_simple_egglog.py`, section 11c (line `1150`):
@@ -327,7 +341,7 @@ python3 tests/e2e.py --exhaustive --prove            # real issy: both checks on
 | `eliminate_dead_code` (driver) | `1676` |
 | pipeline that calls it | `optimize_ast_with_egglog`, `1695` |
 
-Tests: `tests/e2e.py`, `tests/dce_fuzz.py`, and for section 6 `tests/equiv_check.py` (`CFG`, `segment`, `verify`,
+Tests: `tests/e2e.py`, `tests/dce_fuzz.py`, `tests/batch_issy.py` (many specifications, 6.4), and for section 6 `tests/equiv_check.py` (`CFG`, `segment`, `verify`,
 `prove_unbounded`, `self_test`) and `tests/c_exhaustive.py` (`driver`, `compare`, `ast_to_c`).
 
 ## 8. Sources and what each one supports
