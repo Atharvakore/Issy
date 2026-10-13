@@ -77,7 +77,7 @@ is back to the optimizer-only version and `flattener.py` and its output files ar
 ## 5. Evidence
 
 All numbers below come from runs on 2026-10-12. Both kinds of test sample behaviour; neither proves
-equivalence.
+equivalence. The proof for all input sequences is in `2026-10-12_dead-code-elimination.md`, section 6.
 
 ### 5.1 Real runs (author's Mac, real `issy`)
 

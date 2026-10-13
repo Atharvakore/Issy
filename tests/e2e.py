@@ -34,6 +34,11 @@ and then checks the two C programs against each other in several scenarios:
      the original (only meaningful for specs without inputs, where every run executes the same code).
   6. --self-test: the optimized program is damaged on purpose (one executed assignment or guard at a
      time) and the equivalence check must notice; this shows that the check in 4. is able to fail.
+  7. --exhaustive: instead of sampled scenarios, EVERY input sequence up to a depth K (integers from a small
+     domain, booleans both ways) is run on both C programs and all observations are compared
+     (tests/c_exhaustive.py; read its header for what this does and does not cover).
+  8. --prove: the two ASTs that Issy wrote (ast.json, ast_optimized.json) are compared with the SMT solver Z3
+     for ALL input sequences of ANY length (tests/equiv_check.py, needs `pip install z3-solver`).
 
 Usage (from the repository root or anywhere):
 
@@ -42,6 +47,7 @@ Usage (from the repository root or anywhere):
     python3 tests/e2e.py tests/specs/swap.issy    # only this spec (relative to --root)
     python3 tests/e2e.py --self-test --show-dead  # also run 6. and list the dead statements
     python3 tests/e2e.py --keep tests/out         # keep C files, traces, coverage and both ASTs
+    python3 tests/e2e.py --exhaustive --prove     # also 7. and 8.
 
 Needs: make + stack (to build), python3 with the `egglog` package (pip install egglog), a C compiler
 (gcc or clang). Coverage is measured by the instrumentation added here, no gcov is needed.
@@ -395,6 +401,25 @@ def make_mutants(optimized, stmts, covered, limit):
 # ----------------------------------------------------------------------------------------------
 # one spec
 # ----------------------------------------------------------------------------------------------
+def prove_spec(rep, spec, root):
+    """SMT proof on the ASTs of this run: optimized program == original program for all input sequences."""
+    try:
+        import equiv_check
+    except (SystemExit, ImportError) as e:
+        return rep.add(spec, "SMT proof of equivalence", None, f"skipped: {e}")
+    try:
+        a = equiv_check.load(os.path.join(root, "ast.json"))
+        b = equiv_check.load(os.path.join(root, "ast_optimized.json"))
+        t = time.time()
+        res = equiv_check.verify(a, b)
+    except (OSError, ValueError, KeyError) as e:
+        return rep.add(spec, "SMT proof of equivalence", None, f"skipped: {e}")
+    ok = True if res.ok else (False if res.status == "DIFFERENT" else None)
+    rep.add(spec, "SMT proof: optimized == original for all input sequences", ok, f"{res} [{time.time() - t:.1f} s]")
+    if res.status == "DIFFERENT":
+        equiv_check.show(spec, res, 0)
+
+
 def test_spec(args, rep, cc, spec, expected, opts):
     print(f"\n== {spec}")
     root = args.root
@@ -463,6 +488,16 @@ def test_spec(args, rep, cc, spec, expected, opts):
                     f"{len(scens)} scenarios ({', '.join(l for l, _, _ in scens)}); reads per run "
                     f"{min(reads)}..{max(reads)}" + (f"; {aborted} runs end in abort (same in both)" if aborted else ""))
 
+        if args.exhaustive and not bad:
+            import c_exhaustive
+            try:
+                ok, detail = c_exhaustive.compare(original, optimized, work, cc)
+            except ValueError as e:
+                ok, detail = None, str(e)
+            rep.add(spec, "exhaustive: every input sequence up to the depth bound gives the same observations", ok, detail)
+        if args.prove:
+            prove_spec(rep, spec, root)
+
         so = dead_summary(progs["original"][1], covered["original"])
         sp = dead_summary(progs["optimized"][1], covered["optimized"])
         detail = (f"never executed: original {len(so['dead'])} of {so['total']}, "
@@ -529,6 +564,8 @@ def main():
     ap.add_argument("--show-dead", action="store_true", help="list the statements that were never executed")
     ap.add_argument("--self-test", action="store_true", help="also check that damaged programs are detected")
     ap.add_argument("--mutants", type=int, default=8, help="damaged copies per spec for --self-test (default 8)")
+    ap.add_argument("--exhaustive", action="store_true", help="also run every input sequence up to a depth (c_exhaustive.py)")
+    ap.add_argument("--prove", action="store_true", help="also prove equivalence of the two ASTs with Z3 (equiv_check.py)")
     args = ap.parse_args()
     args.root = os.path.abspath(args.root)
     args.issy = os.path.abspath(args.issy) if args.issy else os.path.join(args.root, "issy")
