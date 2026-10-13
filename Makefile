@@ -4,6 +4,7 @@ LINTING=hlint -i "Use tuple-section"
 
 default:
 	stack build
+	@rm -f issy
 	@cp ${STACKPATH}/bin/issy issy
 
 clean:
