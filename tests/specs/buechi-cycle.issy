@@ -1,0 +1,11 @@
+// Buechi game: count 0..3, visit the accepting location top, reset, and repeat forever.
+state int x
+
+game Buechi from run {
+    loc run 0 with [x >= 0] && [x <= 3]
+    loc top 1 with [x >= 0] && [x <= 3]
+
+    from run to run with [x < 3] && [x' = x + 1]
+    from run to top with [x >= 3] && keep(x)
+    from top to run with [x' = 0]
+}

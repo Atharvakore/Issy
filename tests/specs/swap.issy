@@ -1,0 +1,12 @@
+// Two variables that must be swapped in ONE step: x' = y and y' = x.
+// The synthesized program needs a parallel assignment (each right-hand side reads the OLD value).
+state int x
+state int y
+
+game Reachability from l {
+    loc l 0 with [x >= 0] && [x < y] && [y <= 9]
+    loc t 1 with [x > y]
+
+    from l to t with [x' = y] && [y' = x]
+    from t to t with keep(x y)
+}

@@ -1,0 +1,14 @@
+// Boolean input and state: grant answers a request unless the counter n is full (3).
+// n counts the granted requests. Exercises bool variables in the generated program.
+input bool req
+state bool grant
+state int n
+
+game Safety from l {
+    loc l 1 with [n >= 0] && [n <= 3]
+
+    from l to l with
+        ([req] && [n < 3] && [grant'] && [n' = n + 1]) ||
+        ([req] && [n >= 3] && ![grant'] && keep(n)) ||
+        (![req] && ![grant'] && keep(n))
+}

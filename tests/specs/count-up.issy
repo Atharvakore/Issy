@@ -1,0 +1,12 @@
+// Count up from any start value in 0..5 until 5 is reached, then stay there.
+// Reachability game with one counter (like bounded-loop.issy, but counting up).
+state int x
+
+game Reachability from l {
+    loc l 0 with [x >= 0] && [x <= 5]
+    loc t 1
+
+    from l to l with [x < 5] && [x' = x + 1]
+    from l to t with [x >= 5] && keep(x)
+    from t to t with true
+}

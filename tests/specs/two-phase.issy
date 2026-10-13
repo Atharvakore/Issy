@@ -1,0 +1,15 @@
+// Three locations: count up to 3 in a, count down to 0 in b, then reach t.
+// The generated program has to dispatch on its location (prog_counter) across several loops.
+state int x
+
+game Reachability from a {
+    loc a 0 with [x >= 0] && [x <= 3]
+    loc b 0 with [x >= 0] && [x <= 3]
+    loc t 1
+
+    from a to a with [x < 3] && [x' = x + 1]
+    from a to b with [x >= 3] && keep(x)
+    from b to b with [x > 0] && [x' = x - 1]
+    from b to t with [x <= 0] && keep(x)
+    from t to t with true
+}

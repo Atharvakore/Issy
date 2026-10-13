@@ -1,0 +1,16 @@
+// Two counters; the system moves the smaller one up until x = y.
+// Several transitions out of the same location, each changing a different variable.
+state int x
+state int y
+
+game Reachability from l {
+    loc l 0 with [x >= 0] && [x <= 10] && [y >= 0] && [y <= 10]
+    loc t 1
+
+    // Issy allows only one transition per pair of locations, so both moves are one formula.
+    from l to l with
+        ([x < y] && [x' = x + 1] && keep(y)) ||
+        ([x > y] && [y' = y + 1] && keep(x))
+    from l to t with [x = y] && keep(x y)
+    from t to t with true
+}

@@ -1,0 +1,13 @@
+// The environment adds an arbitrary integer i to x; the system keeps x inside 0..10 by saturating.
+// The program has to branch on the input (clip to 10, clip to 0, or just add).
+input int i
+state int x
+
+game Safety from l {
+    loc l 1 with [x >= 0] && [x <= 10]
+
+    from l to l with
+        ([x + i > 10] && [x' = 10]) ||
+        ([x + i < 0] && [x' = 0]) ||
+        ([x + i >= 0] && [x + i <= 10] && [x' = x + i])
+}

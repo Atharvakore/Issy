@@ -1,0 +1,15 @@
+// Like saturating-input.issy, plus y trails x by one step: y' = x (the OLD x) while x moves.
+// Combines a case split on the input with a parallel assignment that depends on the old state.
+input int i
+state int x
+state int y
+
+game Safety from l {
+    loc l 1 with [x >= 0] && [x <= 10] && [y >= 0] && [y <= 10]
+
+    from l to l with
+        [y' = x] && (
+            ([x + i > 10] && [x' = 10]) ||
+            ([x + i < 0] && [x' = 0]) ||
+            ([x + i >= 0] && [x + i <= 10] && [x' = x + i]))
+}

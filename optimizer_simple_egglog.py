@@ -25,7 +25,9 @@ your Haskell JSON AST format instead of C code.
 from __future__ import annotations
 
 import ast as py_ast
+import itertools
 import json
+import sys
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -752,10 +754,37 @@ def egg_repr_to_term_ast(expr_repr: str, var_sorts: Dict[str, Sort]) -> Term:
         EggTerm.Add(EggTerm.Var("x"), EggTerm.Num(1))
 
     back into our Python Term dataclasses.
+
+    If a sub-expression occurs more than once, Egglog prints it as a let-binding first:
+
+        _EggTerm_1 = EggTerm.Add(EggTerm.Var("x"), EggTerm.Var("i"))
+        EggTerm.Lt(EggTerm.Num(10), _EggTerm_1)
+
+    so the repr is parsed as a module: the bindings are collected and substituted by name.
     """
-    tree = py_ast.parse(expr_repr, mode="eval")
+    tree = py_ast.parse(expr_repr, mode="exec")
+    if not tree.body or not isinstance(tree.body[-1], py_ast.Expr):
+        raise ValueError(f"Expected a final expression in Egglog repr, got: {expr_repr!r}")
+    bindings: Dict[str, py_ast.AST] = {}
+    for stmt in tree.body[:-1]:
+        if (
+            isinstance(stmt, py_ast.Assign)
+            and len(stmt.targets) == 1
+            and isinstance(stmt.targets[0], py_ast.Name)
+        ):
+            bindings[stmt.targets[0].id] = stmt.value
+        else:
+            raise ValueError(f"Unexpected statement in Egglog repr: {py_ast.dump(stmt)}")
+    converted: Dict[str, Term] = {}
 
     def conv(node: py_ast.AST) -> Term:
+        if isinstance(node, py_ast.Name):
+            if node.id not in bindings:
+                raise ValueError(f"Unbound name in Egglog repr: {node.id}")
+            if node.id not in converted:
+                converted[node.id] = conv(bindings[node.id])
+            return converted[node.id]
+
         if not isinstance(node, py_ast.Call):
             raise ValueError(f"Expected call node, got: {py_ast.dump(node)}")
 
@@ -810,7 +839,7 @@ def egg_repr_to_term_ast(expr_repr: str, var_sorts: Dict[str, Sort]) -> Term:
 
         raise ValueError(f"Unsupported Egglog constructor: {name}")
 
-    return conv(tree.body)
+    return conv(tree.body[-1].value)
 
 
 # ============================================================
@@ -836,10 +865,10 @@ def optimize_term_with_egglog(term: Term) -> Term:
     optimized = egg_repr_to_term_ast(minimized_repr, var_sorts)
 
     if PRINT_CHANGED_TERMS and optimized != term:
-        print("Changed term:")
-        print("  before:", term)
-        print("  egg:   ", minimized_repr)
-        print("  after: ", optimized)
+        print("Changed term:", file=sys.stderr)
+        print("  before:", term, file=sys.stderr)
+        print("  egg:   ", minimized_repr, file=sys.stderr)
+        print("  after: ", optimized, file=sys.stderr)
 
     return optimized
 
@@ -979,7 +1008,13 @@ def lower_ite_assignment(symbol: str, sort: Sort, term: Term) -> Prog:
 
 def lower_ite_assignments_in_prog(prog: Prog) -> Prog:
     """
+    LEGACY, UNSOUND -- kept only so the regression test can reproduce the bug. Use sound_lower().
+
     Walk a Prog AST and lower every PAssign term of the form FIte(...).
+
+    Known faults (see documents/2026-10-09_ite-lowering-bug-fix.md):
+      * the guard of the second branch is evaluated after the first branch changed the state;
+      * a parallel PAssign with several variables is turned into sequential assignments.
     """
     if isinstance(prog, PAssign):
         lowered_programs: List[Prog] = []
@@ -1015,6 +1050,645 @@ def lower_ite_assignments_in_prog(prog: Prog) -> Prog:
 
 
 # ============================================================
+# 11b. Sound lowering of FIte / parallel assignment  (replaces section 11)
+# ============================================================
+
+def _has_ite(term: Term) -> bool:
+    return isinstance(term, Func) and (
+        term.function.name == "FIte" or any(_has_ite(a) for a in term.args)
+    )
+
+
+def _term_names(term: Term, out: set) -> None:
+    if isinstance(term, Var):
+        out.add(term.name)
+    elif isinstance(term, Func):
+        for a in term.args:
+            _term_names(a, out)
+
+
+def _prog_names(prog: Prog, out: set) -> set:
+    """All variable names that occur anywhere in a Prog (used to pick fresh temporaries)."""
+    if isinstance(prog, Declare):
+        out.add(prog.symbol)
+    elif isinstance(prog, PAssign):
+        for symbol, _, term in prog.assigns:
+            out.add(symbol)
+            _term_names(term, out)
+    elif isinstance(prog, Cond):
+        _term_names(prog.condition, out)
+        _prog_names(prog.body, out)
+    elif isinstance(prog, Sequence):
+        for q in prog.programs:
+            _prog_names(q, out)
+    elif isinstance(prog, InfLoop):
+        _prog_names(prog.body, out)
+    return out
+
+
+def _ite_into(tmp: str, sort: Sort, term: Term) -> Prog:
+    """
+    Assign `term` to the fresh temporary `tmp`, branching on FIte. The guards only read original
+    variables because `tmp` is fresh, so evaluating the second guard after the first branch is harmless.
+    """
+    if isinstance(term, Func) and term.function.name == "FIte" and len(term.args) == 3:
+        cond, then_expr, else_expr = term.args
+        return Sequence([
+            Cond(cond, _ite_into(tmp, sort, then_expr)),
+            Cond(negate_term(cond), _ite_into(tmp, sort, else_expr)),
+        ])
+    return PAssign([(tmp, sort, term)])
+
+
+def sound_lower(prog: Prog, _used: Optional[set] = None, _counter=None) -> Prog:
+    """
+    Semantics-preserving replacement for lower_ite_assignments_in_prog.
+
+        PAssign [(v1, e1), (v2, ite(c, a, b))]
+      becomes
+        Declare t;  Cond(c, t := a);  Cond(!c, t := b);  PAssign [(v1, e1), (v2, t)]
+
+    The real assignment stays ONE parallel PAssign, evaluated after all temporaries are computed, so
+    both the ITE guards and the other right-hand sides see the old state. Temporary names are fresh
+    with respect to every name used in the program.
+    """
+    if _used is None:
+        _used = _prog_names(prog, set())
+        _counter = itertools.count()
+
+    def fresh(base: str) -> str:
+        while True:
+            name = f"ite_tmp_{base}_{next(_counter)}"
+            if name not in _used:
+                _used.add(name)
+                return name
+
+    if isinstance(prog, PAssign):
+        if len(prog.assigns) <= 1 and not any(_has_ite(t) for _, _, t in prog.assigns):
+            return prog
+        pre: List[Prog] = []
+        final: List[Tuple[str, Sort, Term]] = []
+        for symbol, sort, term in prog.assigns:
+            if _has_ite(term):
+                tmp = fresh(symbol)
+                pre += [Declare(tmp, sort), _ite_into(tmp, sort, term)]
+                final.append((symbol, sort, Var(tmp, sort)))
+            else:
+                final.append((symbol, sort, term))
+        return Sequence(pre + [PAssign(final)])
+
+    if isinstance(prog, Cond):
+        return Cond(prog.condition, sound_lower(prog.body, _used, _counter))
+    if isinstance(prog, Sequence):
+        return Sequence([sound_lower(q, _used, _counter) for q in prog.programs])
+    if isinstance(prog, InfLoop):
+        return InfLoop(sound_lower(prog.body, _used, _counter))
+    return prog
+
+
+# ============================================================
+# 11c. Dead-code elimination  (see documents/2026-10-12_dead-code-elimination.md)
+# ============================================================
+#
+# A forward analysis that needs no knowledge of the specification. Walking the program in execution
+# order it keeps, for the current point, what is known about the state:
+#   env    variable -> the (at most _MAX_VALUES) constants it can have     (from `v == k` guards and
+#                                                                          assignments of constants)
+#   true   guards known to hold       (from enclosing `if` guards)
+#   false  guards known not to hold   (from guards that were skipped)
+# and uses it to
+#   * fold guards and right-hand sides: a guard that is true is replaced by its body, one that is false
+#     is removed together with its body;
+#   * remove assignments that store the value the variable already has;
+#   * remove everything after an unconditional Break / Continue / Abort;
+#   * remove assignments to, and declarations of, local variables (Declare) that are never needed.
+# Two paths that meet (after an `if`, at a loop head, after a loop) keep only what holds on both; a loop
+# is analysed until what is known at its head no longer changes (_dce_loop). Knowledge about a variable
+# is dropped as soon as it may change (assignment, Declare, Read for input variables).
+# Assumptions: guard terms are pure and total; Read only changes input variables, i.e. variables that are
+# used but never assigned anywhere in the program; a variable declared with Declare is invisible to
+# read_inputs() (the C printer declares it inside main()).
+
+_INT_LIMIT = 2 ** 31
+
+
+def _free_vars(term: Term, out: Optional[set] = None) -> set:
+    if out is None:
+        out = set()
+    if isinstance(term, Var):
+        out.add(term.name)
+    elif isinstance(term, Func):
+        for a in term.args:
+            _free_vars(a, out)
+    return out
+
+
+def _vars_used(prog: Prog, out: Optional[set] = None) -> set:
+    if out is None:
+        out = set()
+    if isinstance(prog, Cond):
+        _free_vars(prog.condition, out)
+        _vars_used(prog.body, out)
+    elif isinstance(prog, PAssign):
+        for _, _, term in prog.assigns:
+            _free_vars(term, out)
+    elif isinstance(prog, Sequence):
+        for q in prog.programs:
+            _vars_used(q, out)
+    elif isinstance(prog, InfLoop):
+        _vars_used(prog.body, out)
+    return out
+
+
+def _effects(prog: Prog) -> Tuple[set, bool]:
+    """(variables `prog` may assign or declare, whether it may execute Read)"""
+    if isinstance(prog, PAssign):
+        return {symbol for symbol, _, _ in prog.assigns}, False
+    if isinstance(prog, Declare):
+        return {prog.symbol}, False
+    if isinstance(prog, Read):
+        return set(), True
+    if isinstance(prog, (Cond, InfLoop)):
+        return _effects(prog.body)
+    if isinstance(prog, Sequence):
+        assigned: set = set()
+        reads = False
+        for q in prog.programs:
+            a, r = _effects(q)
+            assigned |= a
+            reads = reads or r
+        return assigned, reads
+    return set(), False
+
+
+class _Loop:
+    """States reaching the back edge (`continue`, end of body) and the exits (`break`) of one loop."""
+
+    def __init__(self):
+        self.back: List["_Ctx"] = []
+        self.exits: List["_Ctx"] = []
+
+
+class _Ctx:
+    """What is known about the current state (see the comment above)."""
+
+    def __init__(self, env=None, true=None, false=None, loops=None):
+        self.env: Dict[str, frozenset] = dict(env or {})  # variable -> the few constants it can be
+        self.true: List[Term] = list(true or [])
+        self.false: List[Term] = list(false or [])
+        self.loops: List[_Loop] = loops if loops is not None else []  # enclosing loops, innermost last
+
+    def copy(self) -> "_Ctx":
+        return _Ctx(self.env, self.true, self.false, self.loops)
+
+    def assign_from(self, other: "_Ctx") -> None:
+        self.env, self.true, self.false = dict(other.env), list(other.true), list(other.false)
+
+    def same_as(self, other: "_Ctx") -> bool:
+        return self.env == other.env and self.true == other.true and self.false == other.false
+
+    def kill(self, names: set) -> None:
+        if not names:
+            return
+        for name in names:
+            self.env.pop(name, None)
+        self.true = [f for f in self.true if not (_free_vars(f) & names)]
+        self.false = [f for f in self.false if not (_free_vars(f) & names)]
+
+
+def _join(a: _Ctx, b: _Ctx) -> _Ctx:
+    """What holds in `a` AND in `b`, i.e. what is known after two paths merge (order of `a` is kept)."""
+    env = {}
+    for name, values in a.env.items():
+        if name in b.env and len(values | b.env[name]) <= _MAX_VALUES:
+            env[name] = values | b.env[name]  # after the merge the variable has one of the values of either path
+    return _Ctx(env,
+                [f for f in a.true if f in b.true],
+                [f for f in a.false if f in b.false],
+                a.loops)
+
+
+def _known(term: Term, ctx: _Ctx) -> Optional[bool]:
+    """True/False if the context decides this boolean term, else None.
+    (`_assume` never stores a negation, so a stored fact is always a positive guard.)"""
+    if term in ctx.true:
+        return True
+    if term in ctx.false:
+        return False
+    return None
+
+
+def _negation(term: Term) -> Term:
+    if isinstance(term, Func) and term.function.name == "FNot" and len(term.args) == 1:
+        return term.args[0]
+    return make_func("FNot", [term])
+
+
+def _int_value(term: Term) -> Optional[int]:
+    if isinstance(term, Const) and isinstance(term.const, CInt):
+        return term.const.value
+    return None
+
+
+def _fold_junction(name: str, args: List[Term]) -> Term:
+    """FAnd / FOr over simplified arguments: flatten, drop neutral and repeated arguments, detect
+    an absorbing argument or a pair `a`, `!a`."""
+    is_and = name == "FAnd"
+    neutral, absorbing = is_and, not is_and
+    flat: List[Term] = []
+    for a in args:
+        if isinstance(a, Func) and a.function.name == name:
+            flat.extend(a.args)
+        else:
+            flat.append(a)
+    out: List[Term] = []
+    for a in flat:
+        if is_cbool(a, neutral):
+            continue
+        if is_cbool(a, absorbing):
+            return bool_const(absorbing)
+        if a not in out:
+            out.append(a)
+    if any(_negation(a) in out for a in out):
+        return bool_const(absorbing)
+    if not out:
+        return bool_const(neutral)
+    if len(out) == 1:
+        return out[0]
+    return make_func(name, out)
+
+
+def _fold(name: str, args: List[Term]) -> Term:
+    """One function application over simplified arguments: constant folding and local identities."""
+    nums = [_int_value(a) for a in args]
+    all_num = all(n is not None for n in nums)
+
+    if name in ("FAnd", "FOr"):
+        return _fold_junction(name, args)
+    if name == "FAdd" and all_num and abs(sum(nums)) < _INT_LIMIT:
+        return int_const(sum(nums))
+    if name == "FMul" and all_num:
+        prod = 1
+        for n in nums:
+            prod *= n
+        if abs(prod) < _INT_LIMIT:
+            return int_const(prod)
+    if name == "FEq" and len(args) == 2:
+        if all(isinstance(a, Const) for a in args):
+            return bool_const(args[0] == args[1])
+        if args[0] == args[1]:
+            return bool_const(True)
+    if name in ("FLt", "FLte") and len(args) == 2:
+        if all_num:
+            return bool_const(nums[0] < nums[1] if name == "FLt" else nums[0] <= nums[1])
+        if args[0] == args[1]:
+            return bool_const(name == "FLte")
+    if name == "FNot" and len(args) == 1:
+        if isinstance(args[0], Const) and isinstance(args[0].const, CBool):
+            return bool_const(not args[0].const.value)
+        if isinstance(args[0], Func) and args[0].function.name == "FNot":
+            return args[0].args[0]
+    if name == "FIte" and len(args) == 3:
+        if is_cbool(args[0], True):
+            return args[1]
+        if is_cbool(args[0], False):
+            return args[2]
+        if args[1] == args[2]:
+            return args[1]
+    return make_func(name, args)
+
+
+_MAX_VALUES = 6  # a variable is tracked while it can have at most this many different constant values
+
+
+def _values(term: Term, ctx: _Ctx) -> Optional[frozenset]:
+    """The constants a simplified term can evaluate to, if that is a small known set."""
+    if isinstance(term, Const):
+        return frozenset([term])
+    if isinstance(term, Var):
+        return ctx.env.get(term.name)
+    if isinstance(term, Func) and term.function.name == "FIte" and len(term.args) == 3:
+        a, b = _values(term.args[1], ctx), _values(term.args[2], ctx)
+        if a is not None and b is not None and len(a | b) <= _MAX_VALUES:
+            return a | b
+    return None
+
+
+def _decide(name: str, args: List[Term], ctx: _Ctx) -> Optional[bool]:
+    """`v == k`, `v < k`, `v <= k` (or with the operands swapped) for a variable v with a known set of
+    values: the answer if it is the same for every value."""
+    if name not in ("FEq", "FLt", "FLte") or len(args) != 2:
+        return None
+    a, b = args
+    if isinstance(a, Var) and isinstance(b, Const):
+        values, k, var_left = ctx.env.get(a.name), b, True
+    elif isinstance(b, Var) and isinstance(a, Const):
+        values, k, var_left = ctx.env.get(b.name), a, False
+    else:
+        return None
+    if not values:
+        return None
+    outcomes = set()
+    for v in values:
+        if name == "FEq":
+            outcomes.add(v == k)
+            continue
+        x, y = _int_value(v), _int_value(k)
+        if x is None or y is None:
+            return None
+        left, right = (x, y) if var_left else (y, x)
+        outcomes.add(left < right if name == "FLt" else left <= right)
+    return outcomes.pop() if len(outcomes) == 1 else None
+
+
+def _simp(term: Term, ctx: _Ctx) -> Term:
+    """Simplify a term under the current knowledge: variables with a known value are replaced, the
+    result is folded, and a (sub)term that the context decides becomes a constant."""
+    if isinstance(term, Var):
+        values = ctx.env.get(term.name)
+        return next(iter(values)) if values is not None and len(values) == 1 else term
+    if isinstance(term, Const):
+        return term
+    args = [_simp(a, ctx) for a in term.args]
+    decided = _decide(term.function.name, args, ctx)
+    if decided is not None:
+        return bool_const(decided)
+    result = _fold(term.function.name, args)
+    if isinstance(result, Const):
+        return result
+    k = _known(result, ctx)
+    return result if k is None else bool_const(k)
+
+
+def _narrow(ctx: _Ctx, name: str, keep: Optional[set] = None, drop: Optional[set] = None) -> None:
+    """The variable is (only) one of `keep`, resp. is none of `drop`, additionally to what was known."""
+    values = ctx.env.get(name)
+    if keep is not None:
+        ctx.env[name] = frozenset(keep) if values is None else values & frozenset(keep)
+    elif values is not None and drop is not None:
+        ctx.env[name] = values - frozenset(drop)
+
+
+def _assume(term: Term, truth: bool, ctx: _Ctx) -> None:
+    """Record that the (already simplified) boolean `term` has value `truth`."""
+    if isinstance(term, Const):
+        return
+    if isinstance(term, Var):
+        _narrow(ctx, term.name, keep={bool_const(truth)})
+        return
+    name = term.function.name
+    if name == "FNot" and len(term.args) == 1:
+        _assume(term.args[0], not truth, ctx)
+        return
+    if name == "FAnd" and truth:
+        for a in term.args:
+            _assume(a, True, ctx)
+        return
+    if name == "FOr" and not truth:
+        for a in term.args:
+            _assume(a, False, ctx)
+        return
+    if name == "FEq" and len(term.args) == 2:
+        a, b = term.args
+        var, const = (a, b) if isinstance(a, Var) and isinstance(b, Const) else (b, a)
+        if isinstance(var, Var) and isinstance(const, Const):
+            if truth:
+                _narrow(ctx, var.name, keep={const})
+                return
+            if var.name in ctx.env:
+                _narrow(ctx, var.name, drop={const})
+                return
+    (ctx.true if truth else ctx.false).append(term)
+
+
+def _has_free_break(prog: Prog) -> bool:
+    """A Break that targets the loop directly enclosing `prog` (an inner InfLoop captures its own)."""
+    if isinstance(prog, Break):
+        return True
+    if isinstance(prog, Cond):
+        return _has_free_break(prog.body)
+    if isinstance(prog, Sequence):
+        return any(_has_free_break(q) for q in prog.programs)
+    return False
+
+
+def _diverges(prog: Prog) -> bool:
+    """Conservative: True only if control can never fall off the end of `prog`."""
+    if isinstance(prog, (Break, Continue, Abort)):
+        return True
+    if isinstance(prog, Sequence):
+        return any(_diverges(q) for q in prog.programs)
+    if isinstance(prog, InfLoop):
+        return not _has_free_break(prog.body)
+    return False  # a Cond may skip its body
+
+
+def _dce(prog: Prog, ctx: _Ctx, inputs: set) -> Prog:
+    """Simplified `prog`. `ctx` is updated in place to what is known after `prog` (fall-through path)."""
+    if isinstance(prog, PAssign):
+        new = [(symbol, sort, _simp(term, ctx)) for symbol, sort, term in prog.assigns]
+        stored = {symbol: _values(term, ctx) for symbol, _, term in new}  # in the state before the assignment
+        kept = [
+            (symbol, sort, term) for symbol, sort, term in new
+            if not ((isinstance(term, Var) and term.name == symbol)
+                    or (isinstance(term, Const) and ctx.env.get(symbol) == frozenset([term])))
+        ]  # an assignment that stores the value the variable already has does nothing
+        ctx.kill({symbol for symbol, _, _ in kept})
+        for symbol, _, _ in kept:
+            if stored[symbol] is not None and 0 < len(stored[symbol]) <= _MAX_VALUES:
+                ctx.env[symbol] = stored[symbol]
+        return PAssign(kept) if kept else Sequence([])
+
+    if isinstance(prog, Declare):
+        ctx.kill({prog.symbol})
+        return prog
+
+    if isinstance(prog, Read):
+        ctx.kill(inputs)
+        return prog
+
+    if isinstance(prog, Sequence):
+        out: List[Prog] = []
+        for q in prog.programs:
+            q2 = _dce(q, ctx, inputs)
+            if is_empty_sequence(q2):
+                continue
+            out.append(q2)
+            if _diverges(q2):
+                break  # everything after an unconditional jump is unreachable
+        return Sequence(out)
+
+    if isinstance(prog, Cond):
+        cond = _simp(prog.condition, ctx)
+        if is_cbool(cond, False):
+            return Sequence([])
+        if is_cbool(cond, True):
+            return _dce(prog.body, ctx, inputs)
+        body_ctx = ctx.copy()
+        _assume(cond, True, body_ctx)
+        body = _dce(prog.body, body_ctx, inputs)
+        if is_empty_sequence(body):
+            return Sequence([])  # the guard is pure, so skipping it changes nothing
+        skipped = ctx.copy()
+        _assume(cond, False, skipped)  # the path that does not enter the body
+        if _diverges(body):
+            ctx.assign_from(skipped)  # reaching the next item means the guard was false
+        else:
+            ctx.assign_from(_join(skipped, body_ctx))
+        return Cond(cond, body)
+
+    if isinstance(prog, InfLoop):
+        return _dce_loop(prog, ctx, inputs)
+
+    if isinstance(prog, Break):
+        if ctx.loops:
+            ctx.loops[-1].exits.append(ctx.copy())
+        return prog
+
+    if isinstance(prog, Continue):
+        if ctx.loops:
+            ctx.loops[-1].back.append(ctx.copy())
+        return prog
+
+    return prog  # Abort
+
+
+_MAX_LOOP_ROUNDS = 8
+
+
+def _dce_loop(prog: InfLoop, ctx: _Ctx, inputs: set) -> Prog:
+    """
+    A loop head is reached from the code before the loop and from every back edge (`continue`, end of
+    the body), so what is known there is what holds on all of them. Start with what is known before the
+    loop, analyse the body, join the states that reach the back edge, and repeat until nothing changes
+    (constant propagation, Kildall 1973). What is known after the loop is what holds at all `break`s.
+    """
+    entry = ctx.copy()
+    head = entry.copy()
+    for _ in range(_MAX_LOOP_ROUNDS):
+        frame = _Loop()
+        ctx.loops.append(frame)
+        trial = head.copy()
+        body = _dce(prog.body, trial, inputs)
+        ctx.loops.pop()
+        if not _diverges(body):
+            frame.back.append(trial)  # falling off the end of the body jumps back to the head
+        new_head = entry
+        for back in frame.back:
+            new_head = _join(new_head, back)
+        if new_head.same_as(head):
+            if frame.exits:
+                after = frame.exits[0]
+                for e in frame.exits[1:]:
+                    after = _join(after, e)
+                ctx.assign_from(after)
+            return InfLoop(body)
+        head = new_head
+    # no fixed point within the bound: forget everything the loop may change
+    assigned, reads = _effects(prog.body)
+    changed = assigned | (inputs if reads else set())
+    head = entry.copy()
+    head.kill(changed)
+    ctx.loops.append(_Loop())
+    body = _dce(prog.body, head, inputs)
+    ctx.loops.pop()
+    ctx.kill(changed)
+    return InfLoop(body)
+
+
+# ---- dead local variables ---------------------------------------------------------------------
+# `Declare v` is printed inside main(), so v is invisible to read_inputs() and to the caller. An
+# assignment to such a variable matters only if the variable is read, directly in a guard or through
+# the right-hand side of an assignment to a variable that matters (every variable that is not declared
+# in the program, i.e. every state and input variable, always matters).
+
+def _declared(prog: Prog, out: Optional[set] = None) -> set:
+    if out is None:
+        out = set()
+    if isinstance(prog, Declare):
+        out.add(prog.symbol)
+    elif isinstance(prog, (Cond, InfLoop)):
+        _declared(prog.body, out)
+    elif isinstance(prog, Sequence):
+        for q in prog.programs:
+            _declared(q, out)
+    return out
+
+
+def _guard_reads(prog: Prog, out: set) -> None:
+    if isinstance(prog, Cond):
+        _free_vars(prog.condition, out)
+        _guard_reads(prog.body, out)
+    elif isinstance(prog, (InfLoop,)):
+        _guard_reads(prog.body, out)
+    elif isinstance(prog, Sequence):
+        for q in prog.programs:
+            _guard_reads(q, out)
+
+
+def _assignments(prog: Prog, out: List[Tuple[str, set]]) -> None:
+    if isinstance(prog, PAssign):
+        for symbol, _, term in prog.assigns:
+            out.append((symbol, _free_vars(term)))
+    elif isinstance(prog, (Cond, InfLoop)):
+        _assignments(prog.body, out)
+    elif isinstance(prog, Sequence):
+        for q in prog.programs:
+            _assignments(q, out)
+
+
+def _remove_locals(prog: Prog, dead: set) -> Prog:
+    if isinstance(prog, Declare):
+        return Sequence([]) if prog.symbol in dead else prog
+    if isinstance(prog, PAssign):
+        return PAssign([a for a in prog.assigns if a[0] not in dead])
+    if isinstance(prog, Cond):
+        return Cond(prog.condition, _remove_locals(prog.body, dead))
+    if isinstance(prog, InfLoop):
+        return InfLoop(_remove_locals(prog.body, dead))
+    if isinstance(prog, Sequence):
+        return Sequence([_remove_locals(q, dead) for q in prog.programs])
+    return prog
+
+
+def _drop_dead_locals(prog: Prog) -> Prog:
+    local = _declared(prog)
+    if not local:
+        return prog
+    needed: set = set()
+    _guard_reads(prog, needed)
+    assigns: List[Tuple[str, set]] = []
+    _assignments(prog, assigns)
+    for target, reads in assigns:
+        if target not in local:
+            needed |= reads
+    changed = True
+    while changed:
+        changed = False
+        for target, reads in assigns:
+            if target in needed and not reads <= needed:
+                needed |= reads
+                changed = True
+    dead = local - needed
+    return _remove_locals(prog, dead) if dead else prog
+
+
+def eliminate_dead_code(prog: Prog) -> Prog:
+    """Dead-code elimination (see above), repeated until nothing changes."""
+    for _ in range(10):
+        prog1 = _drop_dead_locals(prog)
+        inputs = _vars_used(prog1) - _effects(prog1)[0]
+        new = optimize_prog_structure(_dce(prog1, _Ctx(), inputs))
+        if new == prog:
+            return new
+        prog = new
+    return prog
+
+
+prune_dead_blocks = eliminate_dead_code  # old name
+
+
+# ============================================================
 # 12. Full optimization pipeline
 # ============================================================
 
@@ -1023,13 +1697,27 @@ def optimize_ast_with_egglog(prog: Prog) -> Prog:
     Full pipeline:
 
     1. Use Egglog to simplify expression terms.
-    2. Lower expression-level FIte assignments into guarded Cond/Sequence programs.
+    2. Lower expression-level FIte assignments soundly (fresh temporaries, one parallel assignment).
     3. Clean trivial program structure such as Cond(True), Cond(False), and empty Sequence.
+    4. Eliminate dead code (eliminate_dead_code: unreachable branches, no-op assignments, code after
+       jumps, unused locals).
+    5. Clean up again.
+    """
+    optimized_terms = optimize_prog_terms_with_egglog(prog)
+    lowered_ites = sound_lower(optimized_terms)
+    cleaned = optimize_prog_structure(lowered_ites)
+    pruned = eliminate_dead_code(cleaned)
+    return optimize_prog_structure(pruned)
+
+
+def optimize_ast_with_egglog_legacy(prog: Prog) -> Prog:
+    """
+    The original pipeline. UNSOUND (see lower_ite_assignments_in_prog); kept for regression tests
+    and for reproducing the results in the thesis.
     """
     optimized_terms = optimize_prog_terms_with_egglog(prog)
     lowered_ites = lower_ite_assignments_in_prog(optimized_terms)
-    cleaned = optimize_prog_structure(lowered_ites)
-    return cleaned
+    return optimize_prog_structure(lowered_ites)
 
 
 # ============================================================
@@ -1063,7 +1751,8 @@ def main() -> None:
 
     # 4. Write output
     write_json(OUTPUT_FILE, output_json)
-    print(f"Wrote optimized AST to: {OUTPUT_FILE}")
+    # stderr, not stdout: Issy runs this script as a child process and its stdout is the C program
+    print(f"Wrote optimized AST to: {OUTPUT_FILE}", file=sys.stderr)
 
 
 if __name__ == "__main__":
