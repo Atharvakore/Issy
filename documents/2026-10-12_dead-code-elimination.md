@@ -138,8 +138,10 @@ Statements of `main()` never executed in any scenario, original -> optimized: `b
 1 of 36, `count-up` 31 of 61 -> 0 of 33, `swap` 17 of 33 -> 0 of 15, `buechi-cycle` 23 of 53 -> 0 of 33,
 `walk-to-diagonal` 45 of 61 -> 43 of 59, `test.issy` 26 of 57 -> 14 of 52.
 
-**Final version, on the ASTs (`ast.json`) of that real run, with a stand-in for the C printer. Not yet run
-with the real `issy` binary.** Never executed, original -> optimized, and `abort()` statements:
+**Final version. First computed on the ASTs (`ast.json`) of that real run with a stand-in for the C printer,
+then confirmed with the real `issy` binary on 2026-10-13 (author's Mac, `python3 tests/e2e.py --self-test
+--show-dead --exhaustive --prove`, 81 of 81 checks passed; every number below is identical in the real run).**
+Never executed, original -> optimized, and `abort()` statements:
 
 | Spec | Never executed | `abort()` | Statements of the AST |
 |---|---|---|---|
@@ -174,9 +176,9 @@ The last three specs have `ite` terms in their assignments: the dispatch on `pro
 - `python3 tests/e2e.py`: the original and optimized C of Issy's real output are run in 1 to 11 scenarios
   (input profiles zero, one, min, max, alternating, random, sticky) and compared at every `read_inputs()`.
   Checked with a stand-in `issy` on the real ASTs: with the legacy pipeline the comparison fails for
-  `swap`, `trailing-value`, `bounded-loop` and `count-up`; with the new one it passes for all. With
-  `--self-test` the test also damages the optimized program on purpose and checks that this is noticed
-  (5 to 8 of 8 damaged copies per spec).
+  `swap`, `trailing-value`, `bounded-loop` and `count-up`; with the new one it passes for all (also with the
+  real `issy`, section 6.2). With `--self-test` the test also damages the optimized program on purpose and
+  checks that this is noticed (all damaged copies for 8 specs, 6 of 8 and 2 of 5 for the other two in the real run).
 
 These tests sample behaviour; they do not prove equivalence. Section 6 does.
 
@@ -236,11 +238,22 @@ used when only an AST is available).
 - `python3 tests/c_exhaustive.py --negative`: old optimizer and damaged copies of the optimized program on the C
   level.
 
-### 6.2 Results (sandbox, 2026-10-13, ASTs of the real `issy` run)
+### 6.2 Results
 
-The ten ASTs are the ones extracted by the real `issy`; the C programs are printed by a copy of the printer in
-Synthesis.hs. The final optimizer has not yet been run through the real `issy` binary:
-`python3 tests/e2e.py --exhaustive --prove` does that (section 6.4).
+**Real `issy`, 2026-10-13, author's Mac** (`python3 tests/e2e.py --self-test --show-dead --exhaustive --prove
+--keep tests/out`; the log `tests/out/run.log` stays on the author's machine and is not committed): 81 of 81 checks passed on all ten specs. Per spec, with the C
+programs that `issy` itself prints and the final optimizer called by `Synthesis.hs`: the optimized program
+behaves like the original in 1 to 11 sampled scenarios; every input sequence up to the depth bound gives the
+same observations (same depths and sequence counts as in the table below); the SMT proof holds for all
+lengths (0.0 to 1.9 s); the dead-statement counts of section 5 are reproduced; the self-test detects all damaged
+copies of the optimized program for 8 specs, 6 of 8 for `bounded-loop` and 2 of 5 for `walk-to-diagonal` (the
+others change nothing the environment sees). All C programs compile, so nothing from the optimizer ends up in
+`issy`'s output.
+
+**Sandbox, same day, same ten ASTs.** The table and the numbers below were first obtained in the sandbox, where
+`issy` cannot be built: the ASTs are the ones extracted by the real `issy`, and the C programs are printed by
+a copy of the printer in Synthesis.hs. The comparison with the old optimizer (last column) was only done
+there, because the real `issy` always runs the current optimizer.
 
 | Spec | A: SMT proof, current optimizer | B: C, current optimizer | Old optimizer: A / B |
 |---|---|---|---|
