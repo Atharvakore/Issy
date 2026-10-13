@@ -4,3 +4,5 @@
 /.stack-work/*
 /stack.yaml.lock
 *.swp
+__pycache__/
+/tests/out/
