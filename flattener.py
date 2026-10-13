@@ -567,6 +567,74 @@ def append_body(case_map: Dict[int, List[AST]], state: int, body: AST) -> None:
         case_map[state].append(body)
 
 
+def writes_variable(n: Any, name: str) -> bool:
+    """True if some PAssign anywhere inside n assigns to the variable `name`."""
+
+    if isinstance(n, list):
+        return any(writes_variable(x, name) for x in n)
+
+    if not isinstance(n, dict):
+        return False
+
+    if tag(n) == "PAssign":
+        for item in n.get("contents", []):
+            if isinstance(item, list) and item and item[0] == name:
+                return True
+
+    return any(writes_variable(v, name) for v in n.values())
+
+
+def fallthrough_states(stmts: List[AST], alive: Set[bool], pc_name: str) -> Set[bool]:
+    """
+    Walks a statement list and returns the set of values of "prog_counter has been
+    written on this path" for the paths that leave the list normally, i.e. NOT via
+    Continue, Break or Abort. `alive` holds the values on entry.
+    """
+
+    alive = set(alive)
+
+    for stmt in stmts:
+        if not alive:
+            break
+
+        t = tag(stmt)
+
+        if t in ("Continue", "Break", "Abort"):
+            return set()
+
+        if t == "PAssign":
+            if writes_variable(stmt, pc_name):
+                alive = {True}
+
+        elif t == "Cond":
+            body = stmt["contents"][1]
+            body_stmts = body.get("contents", []) if tag(body) == "Sequence" else [body]
+            alive = alive | fallthrough_states(body_stmts, alive, pc_name)
+
+        elif t == "Sequence":
+            alive = fallthrough_states(stmt.get("contents", []), alive, pc_name)
+
+        elif t in ("InfLoop", "Switch"):
+            # Leaves via Break: any write inside may have happened.
+            if writes_variable(stmt, pc_name):
+                alive = alive | {True}
+
+    return alive
+
+
+def falls_through_after_pc_write(body: AST, pc_name: str) -> bool:
+    """
+    True if some path through `body` assigns prog_counter and then runs off the end
+    of the body (like `if (prog_counter == 2) { prog_counter = 0; }`). Such a block
+    is followed in the original program by the later blocks, which then see the NEW
+    prog_counter. A Case body cannot do that (the update is atomic and the switch
+    value is only read at the top of the loop), so such a loop is left unconverted.
+    """
+
+    stmts = body.get("contents", []) if tag(body) == "Sequence" else [body]
+    return True in fallthrough_states(stmts, {False}, pc_name)
+
+
 def convert_dispatcher_sequence_to_switch(
     sequence_node: AST,
     pc_name: str
@@ -615,6 +683,10 @@ def convert_dispatcher_sequence_to_switch(
                 return None
 
             condition_expr, body = contents
+
+            if falls_through_after_pc_write(body, pc_name):
+                return None
+
             extracted_states = extract_pc_states_from_condition(
                 condition_expr,
                 pc_name
@@ -720,6 +792,35 @@ def collect_assigned_variables(ast: Any, exclude_prefix: str = "__tmp_") -> Set[
 
     walk(ast)
     return assigned
+
+
+def collect_declared_variables(ast: Any) -> Set[str]:
+    """
+    Names introduced by Declare (local variables of main(), and the temporaries
+    that earlier passes declare).
+    """
+
+    declared: Set[str] = set()
+
+    def walk(n: Any) -> None:
+        if isinstance(n, list):
+            for x in n:
+                walk(x)
+            return
+
+        if not isinstance(n, dict):
+            return
+
+        if tag(n) == "Declare":
+            contents = n.get("contents")
+            if isinstance(contents, list) and contents and isinstance(contents[0], str):
+                declared.add(contents[0])
+
+        for v in n.values():
+            walk(v)
+
+    walk(ast)
+    return declared
 
 
 def tmp_name(name: str) -> str:
@@ -829,8 +930,13 @@ def rewrite_sequence_atomic(
             return out, True
 
         elif t == "InfLoop":
-            # Nested loops are processed separately by the global walk.
+            # Nested loops are processed separately by the global walk. They run
+            # with ordinary sequential semantics, so hand the pending temporaries
+            # over before the loop and take a fresh snapshot after it; otherwise
+            # the final commit of this case would overwrite what the loop did.
+            out.extend(make_commit(vars_to_temp))
             out.append(apply_atomic_update_to_cases(stmt, vars_to_temp))
+            out.extend(make_snapshot(vars_to_temp))
 
         elif t == "Switch":
             # Nested switch is processed separately.
@@ -977,7 +1083,13 @@ def semantically_equivalent_switch_transform(
     # Step 2: collect variables that must be atomically updated
     assigned_vars = collect_assigned_variables(switched)
 
-    # Keep prog_counter included.
+    # Declared locals (loop helpers such as init_x, temporaries introduced by
+    # earlier passes) keep ordinary sequential semantics: a later statement of
+    # the same case body reads what an earlier one wrote. Redirecting them to
+    # __tmp_ copies would make those reads see the stale value.
+    assigned_vars -= collect_declared_variables(switched)
+
+    # Keep prog_counter included (it is declared too, but must stay atomic).
     assigned_vars.add(pc_name)
 
     # Step 3: atomic case rewrite
