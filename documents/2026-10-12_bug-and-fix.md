@@ -70,8 +70,9 @@ design decision for the author (it would make these specs smaller again).
 | How Issy calls it | `src/lib/Issy/Solver/Synthesis.hs`: `optimizeProgWithEgglog` runs `python3 optimizer_simple_egglog.py`. No Haskell change was needed. |
 | Tests | `tests/e2e.py` (end-to-end with the real `issy`, specs in `tests/specs/`), `tests/dce_fuzz.py` (random programs, optimizer only) |
 
-`main` (line 1738) writes `ast_optimized.json`. Since 2026-10-13 Issy runs `flattener.py` on that file; see
-`2026-10-13_flattener-interplay.md`. To revert: `git checkout optimizer_simple_egglog.py`.
+`main` (line 1738) writes `ast_optimized.json`. On 2026-10-13 `origin/main` had added a `flattener.py` step (dispatch loop to `switch`) after it. It is not
+used: Issy cannot read or print a `Switch`, and no `switch` is wanted in the generated C code. `Synthesis.hs`
+is back to the optimizer-only version and `flattener.py` and its output files are deleted on this branch. To revert: `git checkout optimizer_simple_egglog.py`.
 
 ## 5. Evidence
 
