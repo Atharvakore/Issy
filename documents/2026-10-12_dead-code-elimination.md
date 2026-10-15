@@ -3,6 +3,9 @@
 **Date:** 2026-10-12 (rewritten after the loop analysis and the value sets were added; replaces the first
 version, which only had three syntactic rules)
 
+**Updated 2026-10-15:** ranges and relations between variables (rule R9 in section 2); results and tests in
+section 5, code in section 7, sources in section 8.
+
 ## 1. The general idea
 
 Two different things are called "dead code" in compilers:
@@ -28,7 +31,7 @@ walks the program in execution order and keeps, for the current point, what is k
 | Part of the knowledge | Meaning | Comes from |
 |---|---|---|
 | `env` | variable -> the set of at most 6 constants it can have | guards `v == k`, assignments of constants (also `ite` of constants) |
-| `true` | guards known to hold | enclosing `if` guards |
+| `true` | guards known to hold | enclosing `if` guards; also `v == t` after an assignment `v := t` of a linear term `t` (R9) |
 | `false` | guards known not to hold | guards that were skipped |
 
 With that knowledge it applies these rules.
@@ -77,6 +80,18 @@ right-hand side of an assignment to a variable that matters, its assignments and
 removed (this includes `prog_counter` once all guards on it are gone). State and input variables are
 never touched: `read_inputs()` can read them.
 
+**R9. Ranges and relations between variables** (`_entailed`, 2026-10-15). A comparison of linear integer
+terms (`<`, `<=`, `==`) that R1 cannot decide is answered from the facts of the context when they contradict
+its negation. Examples: `5 < x` is known and the question is `3 < x` (true); `x < y` is known and the question is
+`x <= y` (true); after `y := x` the question `x == y` (true); `x + y <= 10`, `0 <= x`, `0 <= y` are known and
+the question is `x <= 10` (true). The facts are the guards in `true` and `false`, the bounds of the variables in
+`env`, and `v == t` recorded after an assignment `v := t` where `t` is linear and no variable of `t` is changed by
+the same assignment. Facts and negated question become constraints `sum(c_i * v_i) + c <= 0`; Fourier-Motzkin
+elimination, rounding every derived constraint to the integers (Pugh 1992 for the integer extension), looks for a
+contradiction. Only the facts connected to the question through shared variables are used (at most 24), the
+elimination stops at 200 constraints, and a question splits into at most 4 alternatives; beyond that the
+question stays undecided. Terms that are not linear (a product of two variables, `ite`, reals) are ignored.
+
 The rules run together and are repeated (at most 10 rounds) with the structural clean-up
 (`optimize_prog_structure`) until the program no longer changes.
 
@@ -98,6 +113,12 @@ point (an over-approximation, as in abstract interpretation). Every rule keeps t
   iteration ends; the bound and the fallback make sure it always does.
 - Removed code was either never reached (decided guard, after a jump) or did nothing (no-op assignment,
   unused local).
+- R9 is a proof by contradiction. Every constraint it derives is a non-negative combination of constraints
+  that hold, and rounding a constraint to the integers is valid because all variables are integers. If the
+  facts and the negated question lead to `0 < c` with `c > 0`, no state satisfies both, so the question has
+  the same answer in every state the facts describe. An equality `v == t` after `v := t` is only recorded when
+  no variable of `t` is changed by the same (parallel) assignment, and it is removed like every other fact
+  when a variable in it changes. When the limits are exceeded nothing is concluded.
 
 Assumptions (check them if the language of Issy's programs grows):
 
@@ -109,14 +130,37 @@ Assumptions (check them if the language of Issy's programs grows):
 3. Integer constants are folded only when the result has absolute value below 2^31, so no overflow of
    the C `int` is hidden.
 4. A `Declare`d variable is local (printer: `Declare` is emitted inside `main()`).
+5. Integer arithmetic in R9 is exact, like Issy's own semantics. If a sum overflows the C `int`, a guard can
+   evaluate differently in C than R9 concludes (R1 folds a constant only below 2^31 for the same reason, but
+   R9 cannot check magnitudes). The C comparison of section 6 uses `-fwrapv` and small values; no program
+   there overflows.
 
 ## 4. What it does not do
 
-- Guards are compared structurally. `x < 2` and `not (2 <= x)` are not recognised as the same fact.
-  A solver (SMT) would be needed for that.
-- Relations between variables (`x == y`, `x < y`) and ranges (`0 <= x < 11`) are not tracked, only
-  constants and small sets of constants. Branches that are dead only because of such facts stay (for
-  example one branch in `bounded-loop`).
+- Other boolean structure is compared as written: a known `a or b` does not answer the question `b or a`.
+  Comparisons of linear terms are decided by R9 whatever their written form (with `x < 2` known,
+  `not (2 <= x)` is true).
+- Facts about numbers come from guards and assignments on the path (R9), not from what the body of a loop does
+  to a variable. Not tracked: ranges that hold at a loop head because of the body (a counter that goes from
+  0 to 10 needs an interval analysis with widening, Cousot and Cousot 1977); facts that hold for some values of
+  another variable only (`prog_counter != 0` implies `x1 == 0` in `cav25-heim-test-09`, so its final `abort()`
+  stays; this needs separate states per value of `prog_counter`); non-linear terms, `mod`, reals.
+- R9 is sound and not complete: Fourier-Motzkin over the rationals with rounding. On 9,509 random questions that
+  Z3 can decide it decides 8,472.
+
+  What the pass tracks, and how it relates to the standard analyses:
+
+  | Level | Tracks | Source | In the pass |
+  |---|---|---|---|
+  | Constant sets | `x` in {1, 4} | Kildall 1973; Cousot and Cousot 1977 | yes (at most 6 values, R1, R5, R6) |
+  | Intervals | `5 < x` | Cousot and Cousot 1977 | from guards and copies on the path (R9); not across loop iterations (no widening) |
+  | Octagons | `+-x +-y <= c`, so `x < y` and `x + y <= 10` | Mine | the same facts from guards and copies (R9); no octagon domain, no join or widening |
+  | Polyhedra | any linear constraint, such as `2x + 3y <= 12` | Cousot and Halbwachs 1978 | linear facts from guards and copies (R9); not the polyhedra domain |
+
+  Checked on small programs: inside `5 < x` the test `3 < x`, inside `x < y` the test `x <= y`, after `y = x` the
+  test `x == y`, and inside `x + y <= 10 && 0 <= x && 0 <= y` the test `x <= 10` are now decided; before R9 none of
+  them was. The facts live in the same lists as the other guards, so a merge keeps only those that are on both paths.
+
 - Remaining `abort()` statements are those the pass cannot prove unreachable. They are sentinels
   ("this should never be reached") and also removing a reachable one would change behaviour.
 - State variables are never removed (observable through `read_inputs()`), so there is no liveness-based
@@ -140,17 +184,18 @@ Statements of `main()` never executed in any scenario, original -> optimized: `b
 
 **Final version. First computed on the ASTs (`ast.json`) of that real run with a stand-in for the C printer,
 then confirmed with the real `issy` binary on 2026-10-13 (author's Mac, `python3 tests/e2e.py --self-test
---show-dead --exhaustive --prove`, 81 of 81 checks passed; every number below is identical in the real run).**
+--show-dead --exhaustive --prove`, 81 of 81 checks passed; every number below was identical in the real run, except the four rows that R9 changed
+on 2026-10-15, see the note under the table).**
 Never executed, original -> optimized, and `abort()` statements:
 
 | Spec | Never executed | `abort()` | Statements of the AST |
 |---|---|---|---|
-| bounded-loop | 31 of 61 -> 1 of 33 | 5 -> 1 | 74 -> 38 |
-| count-up | 31 of 61 -> 0 of 30 | 5 -> 1 | 74 -> 35 |
+| bounded-loop | 31 of 61 -> 0 of 30 | 5 -> 1 | 74 -> 35 |
+| count-up | 31 of 61 -> 0 of 29 | 5 -> 1 | 74 -> 33 |
 | swap | 17 of 33 -> 0 of 15 | 3 -> 2 | 44 -> 21 |
-| buechi-cycle | 23 of 53 -> 0 of 30 | 5 -> 1 | 64 -> 36 |
+| buechi-cycle | 23 of 53 -> 0 of 29 | 5 -> 1 | 64 -> 34 |
 | walk-to-diagonal | 45 of 61 -> 0 of 13 | 5 -> 0 | 84 -> 15 |
-| two-phase (*) | 110 of 142 -> 8 of 36 | 10 -> 2 | 169 -> 43 |
+| two-phase (*) | 110 of 142 -> 8 of 35 | 10 -> 2 | 169 -> 40 |
 | test.issy | 26 of 57 -> 3 of 40 | 4 -> 3 | 72 -> 51 |
 | saturating-input | 0 of 7 -> 0 of 12 | 1 -> 0 | 10 -> 13 |
 | trailing-value | 0 of 7 -> 0 of 12 | 1 -> 0 | 12 -> 15 |
@@ -161,6 +206,12 @@ the numbers describe only these 4 reads.
 The last three specs have `ite` terms in their assignments: the dispatch on `prog_counter`, its
 `abort()` and the variable itself are gone, but the `ite` lowering makes the assignment longer.
 "Statements of the AST" counts every assigned variable, `if`, loop, `read`, jump and `abort`.
+
+**Four rows changed on 2026-10-15 (R9, section 2).** Before: `bounded-loop` 1 of 33 and 74 -> 38, `count-up` 0 of 30 and
+74 -> 35, `buechi-cycle` 0 of 30 and 64 -> 36, `two-phase` 8 of 36 and 169 -> 43; the table shows the new numbers. They were
+computed on the same `ast.json` files with the stand-in printer (`tests/c_exhaustive.py`), not with the real `issy`;
+the numbers of the original programs reproduce the real run exactly, and the other six rows did not change.
+`bounded-loop` no longer keeps its last never-executed statement, the one that needed a range fact.
 
 **Soundness tests.**
 
@@ -181,6 +232,41 @@ The last three specs have `ite` terms in their assignments: the dispatch on `pro
   checks that this is noticed (all damaged copies for 8 specs, 6 of 8 and 2 of 5 for the other two in the real run).
 
 These tests sample behaviour; they do not prove equivalence. Section 6 does.
+
+**Ranges and relations (R9), 2026-10-15.** Old pass against the pass with R9 on the 25 specifications of the batch
+(input: the program after the `ite` lowering; every other stage unchanged):
+
+| Measure | Old pass | With R9 | Change |
+|---|---|---|---|
+| Lines of C | 10,700 | 10,491 | -209 (-2.0%) |
+| Statements | 7,277 | 7,123 | -154 (-2.1%) |
+| Term nodes | 37,105 | 35,133 | -1,972 (-5.3%) |
+| `if` statements | 2,303 | 2,239 | -64 |
+| `abort()` | 155 | 150 | -5 |
+| Loops, `prog_counter` references | 182, 753 | 182, 753 | 0 |
+| Time of the pass, 25 specs | 1.3 s | 2.5 s | +1.2 s |
+
+9 of the 25 programs change (6 get shorter, 3 only lose term nodes); the largest change is `cav25-heim-test-11`
+(2,670 -> 2,530 lines). The gain is small: most dead code that remains is not decided by a guard or a copy on the
+path (section 4 gives the two typical reasons).
+
+**Soundness tests with R9 (2026-10-15).** `dce_fuzz.py` now makes half of its programs relational (guards such as
+`x < y` and `x + y <= 2`, assignments such as `y = x + 1`), so its seeds give different programs than before.
+
+- `python3 tests/dce_fuzz.py oracle 20000`: 20,000 random fact sets and questions; every yes/no answer of `_entailed` is
+  checked with Z3: 0 wrong; 8,472 of the 9,509 questions Z3 can decide are decided by the pass.
+- `python3 tests/dce_fuzz.py real 18000`: 0 programs behave differently, 0 not idempotent (406,269 -> 194,765 statements).
+- `python3 tests/dce_fuzz.py pipeline 300`: 0 differ (legacy pipeline: 9 of 75).
+- `python3 tests/dce_fuzz.py mutants 3000`: 53 deliberately wrong variants (the 40 earlier ones and 13 for R9: `<` read as `<=`,
+  a wrong rounding, a copy fact kept although the same assignment changes a variable in it, and so on): 50 detected,
+  3 only make the pass less precise.
+- Z3 equivalence of the 25 optimized programs (protocol of section 6): 18 proved for all lengths, 7 up to 6 reads,
+  0 different, 0 inconclusive. Before: 17 and 8; the difference is `ranking-choice-2`, whose all-lengths attempt gave no
+  result in the earlier run (time limit) and finished here after 107 s.
+- Exhaustive comparison of the C programs (section 6): 25 of 25 identical, 3,484,910 input sequences.
+- The ten specifications of this repository (table above), `python3 tests/e2e.py --exhaustive --prove` with the stand-in
+  printer instead of `issy`: 71 of 71 checks passed (same observations in all scenarios and for every input sequence up to
+  the depth bound; Z3 proves all ten for all lengths, 0.0 to 2.2 s). `--self-test` was not repeated for R9.
 
 ## 6. Proving that the optimized program is equivalent (2026-10-13)
 
@@ -327,21 +413,22 @@ The second call does not run Issy again; it adds the checks of 6.1 to every fini
 
 ## 7. Code
 
-`optimizer_simple_egglog.py`, section 11c (line `1150`):
+`optimizer_simple_egglog.py`, section 11c (line `1151`):
 
 | What | Line |
 |---|---|
-| `_Ctx` (the knowledge), `_join` | `1232`, `1259` |
-| `_known`, `_fold_junction`, `_fold`, `_values`, `_decide`, `_simp` (R1) | `1271`, `1293`, `1321`, `1364`, `1377`, `1404` |
-| `_narrow`, `_assume` (R3) | `1423`, `1432` |
-| `_has_free_break`, `_diverges` (R4) | `1464`, `1475` |
-| `_dce` (R2, R5, R7) | `1486` |
-| `_dce_loop` (R6) | `1559` |
-| dead locals (R8): `_declared` ... `_drop_dead_locals` | `1605` ... `1654` |
-| `eliminate_dead_code` (driver) | `1676` |
-| pipeline that calls it | `optimize_ast_with_egglog`, `1695` |
+| `_Ctx` (the knowledge), `_join` | `1235`, `1262` |
+| `_known`, `_fold_junction`, `_fold`, `_values`, `_decide`, `_simp` (R1) | `1274`, `1296`, `1324`, `1367`, `1380`, `1407` |
+| `_narrow`, `_assume` (R3) | `1428`, `1437` |
+| relations between variables (R9): `_con`, `_lin`, `_diff`, `_alternatives`, `_constraints_of`, `_facts_near`, `_infeasible`, `_entailed` | `1489`, `1502`, `1534`, `1542`, `1574`, `1596`, `1625`, `1670` |
+| `_has_free_break`, `_diverges` (R4) | `1685`, `1696` |
+| `_dce` (R2, R5, R7; the copy facts of R9) | `1707` |
+| `_dce_loop` (R6) | `1786` |
+| dead locals (R8): `_declared` ... `_drop_dead_locals` | `1832` ... `1881` |
+| `eliminate_dead_code` (driver) | `1903` |
+| pipeline that calls it | `optimize_ast_with_egglog`, `1923` |
 
-Tests: `tests/e2e.py`, `tests/dce_fuzz.py`, `tests/batch_issy.py` (many specifications, 6.4), and for section 6 `tests/equiv_check.py` (`CFG`, `segment`, `verify`,
+Tests: `tests/e2e.py`, `tests/dce_fuzz.py` (modes `real`, `pipeline`, `oracle`, `mutants`), `tests/batch_issy.py` (many specifications, 6.4), and for section 6 `tests/equiv_check.py` (`CFG`, `segment`, `verify`,
 `prove_unbounded`, `self_test`) and `tests/c_exhaustive.py` (`driver`, `compare`, `ast_to_c`).
 
 ## 8. Sources and what each one supports
@@ -378,6 +465,15 @@ sections, editions) before putting them in the thesis.
   <https://docs.oracle.com/javase/specs/jls/se21/html/jls-14.html>
 - The Go Programming Language Specification, section "Terminating statements". A `for` loop without
   condition is terminating if no `break` refers to it. <https://go.dev/ref/spec#Terminating_statements>
+
+**Relations between variables (R9, section 2) and the analyses that are not implemented (section 4)**
+- W. Pugh. The Omega test: a fast and practical integer programming algorithm for dependence analysis. Communications of
+  the ACM, August 1992, pp. 102-114 (expanded version of the Supercomputing '91 paper; volume and number not checked).
+  (Fourier-Motzkin elimination extended to integers. R9 uses only the rounding of constraints, not the complete Omega
+  test, so it is incomplete.)
+- Not implemented: P. Cousot, N. Halbwachs. Automatic discovery of linear restraints among variables of a program. POPL
+  1978, pp. 84-97 (polyhedra); A. Mine. The octagon abstract domain. arXiv:cs/0703084 (add the journal details of the
+  published version before citing); intervals with widening: Cousot and Cousot 1977, listed above.
 
 **Stronger implication checks (possible extension)**
 - L. de Moura, N. Bjorner. Z3: An efficient SMT solver. TACAS 2008, LNCS 4963, pp. 337-340.

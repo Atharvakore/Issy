@@ -8,6 +8,8 @@ Soundness check of the dead-code elimination in optimizer_simple_egglog.py (no I
                                             and a second application must change nothing
   python3 tests/dce_fuzz.py pipeline  [N]   the same for the whole optimizer (Egglog terms, FIte lowering,
                                             dead-code elimination), and for the legacy pipeline for comparison
+  python3 tests/dce_fuzz.py oracle    [N]   N random fact sets and questions: whenever the linear reasoning of the pass
+                                            (_entailed) answers yes or no, Z3 must agree that the facts imply it
   python3 tests/dce_fuzz.py mutants   [N [FIRST LAST]]
                                             builds deliberately WRONG variants of the pass (a rule changed so that
                                             it is no longer sound) and checks that this test notices each of them;
@@ -17,6 +19,8 @@ Soundness check of the dead-code elimination in optimizer_simple_egglog.py (no I
 A program is a tree of the Prog constructors (Read, Cond, Sequence, InfLoop, Break, Continue, Abort, Declare,
 PAssign) over three int and two bool state variables, one int and one bool input, and two local variables.
 Behaviour is compared on three random initial states times three random input streams per program.
+Half of the programs use relational guards (x < y, x + y <= 2, ...) and assignments such as y = x + 1, so that the
+reasoning about relations between variables is exercised.
 """
 import importlib.util, random, re, sys, os, time
 
@@ -107,8 +111,9 @@ def run(prog, init, seed, max_reads=18, max_iters=250, keep=KEEPG):
 
 # ---------------- generator ----------------
 class Gen:
-    def __init__(self, r, small=False):
+    def __init__(self, r, small=False, rel=False):
         self.r = r
+        self.rel = rel
         self.lvs = ["l1", "l2"]
         self.ivs = ["x"] if small else IVARS
         self.bvs = ["b"] if small else BVARS
@@ -116,12 +121,21 @@ class Gen:
         self.dn = 0
     def ivar(self): return iv(self.r.choice(self.ivs + self.lvs + [IIN]))
     def atom(self):
-        r = self.r; k = r.random()
+        r = self.r
+        if self.rel and r.random() < 0.5: return self.rel_atom()
+        k = r.random()
         if k < 0.35: return F("FEq", [self.ivar(), ic(r.randint(-1, 3))])
         if k < 0.5: return F(r.choice(["FLt", "FLte"]), [self.ivar(), ic(r.randint(-1, 3))])
         if k < 0.6: return F("FEq", [iv(r.choice(self.ivs)), iv(r.choice(self.ivs))])
         if k < 0.65: return F(r.choice(["FLt", "FLte"]), [ic(r.randint(-1, 3)), self.ivar()])
         return bv(r.choice(self.bvs + [BIN]))
+    def rel_atom(self):
+        r = self.r; k = r.random()
+        if k < 0.30: return F(r.choice(["FLt", "FLte"]), [self.ivar(), self.ivar()])
+        if k < 0.50: return F(r.choice(["FLt", "FLte"]), [F("FAdd", [self.ivar(), self.ivar()]), ic(r.randint(-1, 4))])
+        if k < 0.70: return F(r.choice(["FLt", "FLte"]), [F("FAdd", [self.ivar(), ic(r.randint(-2, 2))]), self.ivar()])
+        if k < 0.85: return F("FEq", [F("FAdd", [self.ivar(), ic(r.randint(-1, 1))]), self.ivar()])
+        return F(r.choice(["FLt", "FLte"]), [F("FMul", [ic(r.randint(2, 3)), self.ivar()]), F("FAdd", [self.ivar(), ic(r.randint(-1, 3))])])
     def guard(self, d=2):
         r = self.r; k = r.random()
         if d == 0 or k < 0.45:
@@ -133,6 +147,8 @@ class Gen:
         return bc(r.random() < 0.5)
     def iterm(self, d=2):
         r = self.r; k = r.random()
+        if self.rel and r.random() < 0.3:
+            return F("FAdd", [self.ivar(), ic(r.randint(-1, 2))]) if r.random() < 0.8 else self.ivar()
         if d == 0 or k < 0.5:
             return ic(r.randint(-1, 3)) if r.random() < 0.55 else self.ivar()
         if k < 0.7: return F("FAdd", [self.iterm(d - 1), self.iterm(d - 1)])
@@ -206,7 +222,7 @@ def check(prune, nprog, seed0=0, quiet=True):
     bad = []; shrunk = 0; total = 0; changed = 0; idem_bad = 0
     for n in range(nprog):
         r = random.Random(seed0 + n)
-        p = Gen(r, small=(n % 2 == 1)).top()
+        p = Gen(r, small=(n % 2 == 1), rel=(n % 4 >= 2)).top()
         q = prune(p)
         total += size(p); shrunk += size(p) - size(q); changed += (q != p)
         if prune(q) != q: idem_bad += 1
@@ -228,7 +244,7 @@ def check(prune, nprog, seed0=0, quiet=True):
 
 MUTANTS = [
  ("read-no-kill", "ctx.kill(inputs)\n        return prog", "pass\n        return prog"),
- ("passign-no-kill", "ctx.kill({symbol for symbol, _, _ in kept})", "pass"),
+ ("passign-no-kill", "ctx.kill(assigned)\n        for symbol, _, _ in kept:\n            if stored", "pass\n        for symbol, _, _ in kept:\n            if stored"),
  ("assume-polarity", "_assume(cond, False, skipped)", "_assume(cond, True, skipped)"),
  ("cond-merge-ignores-body", "ctx.assign_from(_join(skipped, body_ctx))", "ctx.assign_from(skipped)"),
  ("join-set-intersect", "env[name] = values | b.env[name]", "env[name] = values & b.env[name]"),
@@ -263,6 +279,20 @@ MUTANTS = [
  ("known-swapped", "    if term in ctx.true:\n        return True\n    if term in ctx.false:\n        return False\n    return None", "    if term in ctx.true:\n        return False\n    if term in ctx.false:\n        return True\n    return None"),
  ("contradiction-wrong", "if any(_negation(a) in out for a in out):\n        return bool_const(absorbing)", "if any(_negation(a) in out for a in out):\n        return bool_const(neutral)"),
  ("ite-swapped", "if is_cbool(args[0], True):\n            return args[1]", "if is_cbool(args[0], True):\n            return args[2]"),
+ # reasoning about relations between variables (each is unsound)
+ ("rel-lt-false-strict", "return [[_diff(a, b, 1)]] if truth else [[_diff(b, a, 0)]]", "return [[_diff(a, b, 1)]] if truth else [[_diff(b, a, 1)]]"),
+ ("rel-lte-true-strict", "return [[_diff(a, b, 0)]] if truth else [[_diff(b, a, 1)]]", "return [[_diff(a, b, 1)]] if truth else [[_diff(b, a, 1)]]"),
+ ("rel-eq-false-and", "else [[_diff(a, b, 1)], [_diff(b, a, 1)]]", "else [[_diff(a, b, 1), _diff(b, a, 1)]]"),
+ ("rel-round-too-strong", "const = -((-const) // g)  # ceil(const / g)", "const = const // g + 1"),
+ ("rel-combine-wrong-factors", "_con(comb, b * uconst + a * lconst)", "_con(comb, a * uconst + b * lconst)"),
+ ("rel-all-becomes-any", "if all(_infeasible(facts + alt) for alt in if_false):", "if any(_infeasible(facts + alt) for alt in if_false):"),
+ ("rel-answer-swapped", "return True  # the facts and \"not atom\" contradict each other", "return False  # the facts and \"not atom\" contradict each other"),
+ ("rel-copy-ignores-same-assignment", "and not (_free_vars(term) & assigned)", ""),
+ ("rel-env-bound-wrong", "near.append(_con({name: -1}, min(ints)))  # min <= name", "near.append(_con({name: -1}, max(ints)))  # min <= name"),
+ ("rel-false-facts-as-true", "pool.extend(_cached_constraints(f, False))", "pool.extend(_cached_constraints(f, True))"),
+ ("rel-and-or-swapped", "if (name == \"FAnd\") != truth:  # one of the arguments holds", "if (name == \"FAnd\") == truth:  # one of the arguments holds"),
+ ("rel-diff-sign", "coefs[v] = coefs.get(v, 0) - c\n    return _con(coefs, a[1] - b[1] + extra)", "coefs[v] = coefs.get(v, 0) + c\n    return _con(coefs, a[1] - b[1] + extra)"),
+ ("rel-fact-from-wrong-term", "ctx.true.append(make_func(\"FEq\", [Var(symbol, sort), term]))", "ctx.true.append(make_func(\"FEq\", [Var(symbol, sort), make_func(\"FAdd\", [term, int_const(1)])]))"),
  ("locals-ignore-guards", "    _guard_reads(prog, needed)\n", "    pass\n"),
  ("locals-no-chain", "    changed = True\n    while changed:", "    changed = False\n    while changed:"),
  ("locals-treat-globals-as-local", "    local = _declared(prog)\n    if not local:", "    local = _declared(prog) | {\"x\", \"y\", \"z\", \"b\", \"c\"}\n    if not local:"),
@@ -274,6 +304,62 @@ EXTRA = {"fallback-no-kill": ("    ctx.kill(changed)\n    return InfLoop(body)",
 PRECISION_ONLY = {"break-not-divergent", "stored-values-from-wrong-state", "narrow-keep-union"}
 
 
+def oracle(n, seed0=0):
+    """Random facts (guards that are true or false, bounds from a set of values) and a random comparison: when the
+    linear reasoning of the pass answers, Z3 must confirm that the facts imply that answer."""
+    import z3
+    zv = {v: z3.Int(v) for v in IVARS}
+    def lin_term(r):
+        parts = []
+        for v in r.sample(IVARS, r.randint(1, 3)):
+            c = r.randint(-3, 3)
+            if c: parts.append(F("FMul", [ic(c), iv(v)]) if c != 1 else iv(v))
+        k = r.randint(-5, 5)
+        if k or not parts: parts.append(ic(k))
+        return F("FAdd", parts) if len(parts) > 1 else parts[0]
+    def atom(r): return F(r.choice(["FLt", "FLte", "FEq"]), [lin_term(r), lin_term(r)])
+    def to_z3(t):
+        if isinstance(t, M.Var): return zv[t.name]
+        if isinstance(t, M.Const): return t.const.value
+        a = [to_z3(x) for x in t.args]; nm = t.function.name
+        if nm == "FAdd": return sum(a[1:], a[0]) if len(a) > 1 else a[0]
+        if nm == "FMul":
+            out = a[0]
+            for x in a[1:]: out = out * x
+            return out
+        return {"FEq": lambda: a[0] == a[1], "FLt": lambda: a[0] < a[1], "FLte": lambda: a[0] <= a[1],
+                "FAnd": lambda: z3.And(*a), "FOr": lambda: z3.Or(*a), "FNot": lambda: z3.Not(a[0])}[nm]()
+    def implied(facts, q):
+        s = z3.Solver(); s.set(timeout=5000)
+        for f in facts: s.add(f)
+        s.add(z3.Not(q))
+        return s.check() == z3.unsat
+    wrong, decided, z3_decided, total, unsure = [], 0, 0, 0, 0
+    for k in range(n):
+        r = random.Random(seed0 + k)
+        true_f, false_f, zf = [], [], []
+        for _ in range(r.randint(0, 5)):
+            a = atom(r) if r.random() < 0.8 else F(r.choice(["FAnd", "FOr"]), [atom(r), atom(r)])
+            if r.random() < 0.5: true_f.append(a); zf.append(to_z3(a))
+            else: false_f.append(a); zf.append(z3.Not(to_z3(a)))
+        env = {}
+        for v in IVARS:
+            if r.random() < 0.3:
+                vals = r.sample(range(-2, 4), r.randint(1, 3)); env[v] = frozenset(ic(x) for x in vals)
+                zf.append(z3.Or(*[zv[v] == x for x in vals]))
+        ctx = M._Ctx(env, true_f, false_f)
+        q = atom(r)
+        got = M._entailed(q, ctx)
+        zq = to_z3(q)
+        zt, zfalse = implied(zf, zq), implied(zf, z3.Not(zq))
+        total += 1; decided += got is not None; z3_decided += (zt or zfalse)
+        if (got is True and not zt) or (got is False and not zfalse):
+            wrong.append((seed0 + k, got))
+    print(f"oracle: {total} questions, {decided} answered by the pass, {z3_decided} decidable by Z3 "
+          f"(the pass misses {z3_decided - decided}), WRONG answers: {len(wrong)} {wrong[:5]}", flush=True)
+    return not wrong
+
+
 def pipeline(n, seed0=0):
     res = {}
     for which, fn in (("new", M.optimize_ast_with_egglog), ("legacy", M.optimize_ast_with_egglog_legacy)):
@@ -281,7 +367,7 @@ def pipeline(n, seed0=0):
         count = n if which == "new" else max(50, n // 4)
         for k in range(count):
             r = random.Random(seed0 + k)
-            p = Gen(r, small=(k % 2 == 1)).top()
+            p = Gen(r, small=(k % 2 == 1), rel=(k % 4 >= 2)).top()
             q = fn(p)
             sz0 += size(p); sz1 += size(q)
             if any(run(p, init, sd, keep=KEEPG) != run(q, init, sd, keep=KEEPG)
@@ -294,7 +380,7 @@ def pipeline(n, seed0=0):
 
 if __name__ == "__main__":
     mode = sys.argv[1] if len(sys.argv) > 1 else "real"
-    n = int(sys.argv[2]) if len(sys.argv) > 2 else {"real": 3000, "pipeline": 300, "mutants": 3000}.get(mode, 3000)
+    n = int(sys.argv[2]) if len(sys.argv) > 2 else {"real": 3000, "pipeline": 300, "mutants": 3000, "oracle": 5000}.get(mode, 3000)
     t = time.time()
     ok = True
     if mode == "real":
@@ -304,6 +390,8 @@ if __name__ == "__main__":
         ok = r["mismatches"] == 0 and r["not_idempotent"] == 0
     elif mode == "pipeline":
         ok = pipeline(n)
+    elif mode == "oracle":
+        ok = oracle(n)
     elif mode == "mutants":
         missed = []
         lo, hi = (int(sys.argv[3]), int(sys.argv[4])) if len(sys.argv) > 4 else (0, len(MUTANTS))

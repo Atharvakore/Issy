@@ -29,6 +29,7 @@ import itertools
 import json
 import sys
 from dataclasses import dataclass
+from math import gcd as _gcd
 from typing import Any, Dict, List, Optional, Tuple
 
 from egglog import *
@@ -1154,11 +1155,12 @@ def sound_lower(prog: Prog, _used: Optional[set] = None, _counter=None) -> Prog:
 # order it keeps, for the current point, what is known about the state:
 #   env    variable -> the (at most _MAX_VALUES) constants it can have     (from `v == k` guards and
 #                                                                          assignments of constants)
-#   true   guards known to hold       (from enclosing `if` guards)
+#   true   guards known to hold       (from enclosing `if` guards, and `v == t` after `v := t` for a linear t)
 #   false  guards known not to hold   (from guards that were skipped)
 # and uses it to
 #   * fold guards and right-hand sides: a guard that is true is replaced by its body, one that is false
-#     is removed together with its body;
+#     is removed together with its body; comparisons of linear integer terms are also decided from the
+#     facts (ranges and relations between variables, see "relations between variables" below);
 #   * remove assignments that store the value the variable already has;
 #   * remove everything after an unconditional Break / Continue / Abort;
 #   * remove assignments to, and declarations of, local variables (Declare) that are never needed.
@@ -1167,7 +1169,8 @@ def sound_lower(prog: Prog, _used: Optional[set] = None, _counter=None) -> Prog:
 # is dropped as soon as it may change (assignment, Declare, Read for input variables).
 # Assumptions: guard terms are pure and total; Read only changes input variables, i.e. variables that are
 # used but never assigned anywhere in the program; a variable declared with Declare is invisible to
-# read_inputs() (the C printer declares it inside main()).
+# read_inputs() (the C printer declares it inside main()); integer arithmetic in the relational reasoning is
+# exact, like Issy's own semantics (no wrap-around of the C int).
 
 _INT_LIMIT = 2 ** 31
 
@@ -1417,6 +1420,8 @@ def _simp(term: Term, ctx: _Ctx) -> Term:
     if isinstance(result, Const):
         return result
     k = _known(result, ctx)
+    if k is None:
+        k = _entailed(result, ctx)  # ranges and relations between variables (see "relations between variables")
     return result if k is None else bool_const(k)
 
 
@@ -1461,6 +1466,222 @@ def _assume(term: Term, truth: bool, ctx: _Ctx) -> None:
     (ctx.true if truth else ctx.false).append(term)
 
 
+# ---- relations between variables ---------------------------------------------------------------
+# A guard that compares linear integer terms (`5 < x`, `x < y`, `x + y <= 10`) says something about
+# several variables at once, and `y = x + 1` relates two variables after the assignment. `_entailed`
+# asks whether the facts of the context decide such a comparison. The facts and the negation of the
+# comparison become linear constraints  sum(c_i * v_i) + c <= 0  over the integers, and Fourier-Motzkin
+# elimination (rounding every derived constraint, which is valid for integers) looks for a
+# contradiction. A contradiction proves the answer. No contradiction proves nothing: the method is not
+# complete, and it gives up when a question grows past the limits below. Standard analyses that track
+# such facts are intervals (Cousot and Cousot 1977), octagons (Mine 2006) and polyhedra (Cousot and
+# Halbwachs 1978); here the facts are the guards and assignments seen on the path.
+# Integers are the mathematical integers of Issy's semantics, as in the rest of the pass (the C int wraps
+# at 2^31, which a relational conclusion cannot see; constants are folded only below 2^31 for the same reason).
+
+_MAX_FACTS = 24     # facts used for one question (those connected to it through shared variables)
+_MAX_ROWS = 200     # constraints alive at the same time during the elimination
+_MAX_ALTERNATIVES = 4  # a question may split into at most this many alternatives
+
+_Con = Tuple[Tuple[Tuple[str, int], ...], int]  # (((variable, coefficient), ...), constant)  meaning  sum + constant <= 0
+
+
+def _con(coefs: Dict[str, int], const: int) -> _Con:
+    """The constraint, divided by the gcd of the coefficients with the constant rounded up (valid for integers)."""
+    coefs = {v: c for v, c in coefs.items() if c}
+    if coefs:
+        g = 0
+        for c in coefs.values():
+            g = _gcd(g, abs(c))
+        if g > 1:
+            coefs = {v: c // g for v, c in coefs.items()}
+            const = -((-const) // g)  # ceil(const / g)
+    return tuple(sorted(coefs.items())), const
+
+
+def _lin(term: Term) -> Optional[Tuple[Dict[str, int], int]]:
+    """`term` as  sum(coefficient * variable) + constant  over integers, or None if it is not of that form."""
+    if isinstance(term, Const):
+        value = _int_value(term)
+        return ({}, value) if value is not None else None
+    if isinstance(term, Var):
+        return ({term.name: 1}, 0) if isinstance(term.sort, SInt) else None
+    if isinstance(term, Func) and term.function.name == "FAdd":
+        coefs: Dict[str, int] = {}
+        const = 0
+        for a in term.args:
+            part = _lin(a)
+            if part is None:
+                return None
+            for v, c in part[0].items():
+                coefs[v] = coefs.get(v, 0) + c
+            const += part[1]
+        return {v: c for v, c in coefs.items() if c}, const
+    if isinstance(term, Func) and term.function.name == "FMul":
+        coefs, const = {}, 1  # the product so far
+        for a in term.args:
+            part = _lin(a)
+            if part is None or (coefs and part[0]):
+                return None  # not linear: two factors with variables
+            if part[0]:
+                coefs, const = {v: c * const for v, c in part[0].items()}, part[1] * const
+            else:
+                coefs, const = {v: c * part[1] for v, c in coefs.items()}, const * part[1]
+        return {v: c for v, c in coefs.items() if c}, const
+    return None
+
+
+def _diff(a: Tuple[Dict[str, int], int], b: Tuple[Dict[str, int], int], extra: int) -> _Con:
+    """The constraint  a - b + extra <= 0."""
+    coefs = dict(a[0])
+    for v, c in b[0].items():
+        coefs[v] = coefs.get(v, 0) - c
+    return _con(coefs, a[1] - b[1] + extra)
+
+
+def _alternatives(term: Term, truth: bool) -> Optional[List[List[_Con]]]:
+    """"`term` has value `truth`" as an OR of ANDs of linear constraints, or None if it cannot be said that way."""
+    if not isinstance(term, Func):
+        return None
+    name = term.function.name
+    if name == "FNot" and len(term.args) == 1:
+        return _alternatives(term.args[0], not truth)
+    if name in ("FLt", "FLte", "FEq") and len(term.args) == 2:
+        a, b = _lin(term.args[0]), _lin(term.args[1])
+        if a is None or b is None:
+            return None
+        if name == "FLt":
+            return [[_diff(a, b, 1)]] if truth else [[_diff(b, a, 0)]]
+        if name == "FLte":
+            return [[_diff(a, b, 0)]] if truth else [[_diff(b, a, 1)]]
+        return [[_diff(a, b, 0), _diff(b, a, 0)]] if truth else [[_diff(a, b, 1)], [_diff(b, a, 1)]]
+    if name in ("FAnd", "FOr"):
+        parts = [_alternatives(a, truth) for a in term.args]
+        if any(p is None for p in parts):
+            return None
+        if (name == "FAnd") != truth:  # one of the arguments holds: alternatives add up
+            out = [alt for p in parts for alt in p]
+            return out if len(out) <= _MAX_ALTERNATIVES else None
+        out = [[]]  # all arguments hold: alternatives multiply
+        for p in parts:
+            out = [x + y for x in out for y in p]
+            if len(out) > _MAX_ALTERNATIVES:
+                return None
+        return out
+    return None
+
+
+def _constraints_of(term: Term, truth: bool) -> List[_Con]:
+    """Constraints that hold whenever `term` has value `truth` (parts that cannot be said linearly are left out)."""
+    if isinstance(term, Func):
+        name = term.function.name
+        if name == "FNot" and len(term.args) == 1:
+            return _constraints_of(term.args[0], not truth)
+        if name in ("FAnd", "FOr") and (name == "FAnd") == truth:
+            return [c for a in term.args for c in _constraints_of(a, truth)]
+    alts = _alternatives(term, truth)
+    return alts[0] if alts is not None and len(alts) == 1 else []
+
+
+_CONSTRAINT_CACHE: Dict[Tuple[int, bool], Tuple[Term, List[_Con]]] = {}  # keyed by object identity; the term is kept alive here
+
+
+def _cached_constraints(term: Term, truth: bool) -> List[_Con]:
+    hit = _CONSTRAINT_CACHE.get((id(term), truth))
+    if hit is None:
+        hit = _CONSTRAINT_CACHE[(id(term), truth)] = (term, _constraints_of(term, truth))
+    return hit[1]
+
+
+def _facts_near(ctx: _Ctx, names: set) -> List[_Con]:
+    """The constraints known in `ctx` that are connected to `names` (through shared variables), plus the
+    bounds of the variables with a known set of values."""
+    pool: List[_Con] = []
+    for f in ctx.true:
+        pool.extend(_cached_constraints(f, True))
+    for f in ctx.false:
+        pool.extend(_cached_constraints(f, False))
+    seen, near = set(names), []
+    grew = True
+    while grew and pool and len(near) < _MAX_FACTS:
+        grew, rest = False, []
+        for con in pool:
+            if len(near) < _MAX_FACTS and any(v in seen for v, _ in con[0]):
+                near.append(con)
+                seen.update(v for v, _ in con[0])
+                grew = True
+            else:
+                rest.append(con)
+        pool = rest
+    for name in seen:
+        values = ctx.env.get(name)
+        ints = [_int_value(v) for v in values] if values else []
+        if ints and None not in ints:
+            near.append(_con({name: -1}, min(ints)))  # min <= name
+            near.append(_con({name: 1}, -max(ints)))  # name <= max
+    return near
+
+
+def _infeasible(cons: List[_Con]) -> bool:
+    """True only if the constraints have no integer solution (Fourier-Motzkin; False means unknown)."""
+    rows: Dict[Tuple[Tuple[str, int], ...], int] = {}
+    for coefs, const in cons:
+        if not coefs:
+            if const > 0:
+                return True
+            continue
+        if coefs not in rows or const > rows[coefs]:
+            rows[coefs] = const  # a larger constant is the stronger constraint
+    while rows:
+        count: Dict[str, List[int]] = {}
+        for coefs in rows:
+            for v, c in coefs:
+                count.setdefault(v, [0, 0])[0 if c > 0 else 1] += 1
+        var = min(count, key=lambda v: count[v][0] * count[v][1])
+        upper, lower, rest = [], [], {}
+        for coefs, const in rows.items():
+            c = dict(coefs).get(var, 0)
+            if c > 0:
+                upper.append((coefs, const, c))
+            elif c < 0:
+                lower.append((coefs, const, -c))
+            else:
+                rest[coefs] = const
+        for ucoefs, uconst, a in upper:
+            for lcoefs, lconst, b in lower:
+                comb: Dict[str, int] = {}
+                for v, c in ucoefs:
+                    comb[v] = comb.get(v, 0) + b * c
+                for v, c in lcoefs:
+                    comb[v] = comb.get(v, 0) + a * c
+                new, const = _con(comb, b * uconst + a * lconst)  # the coefficient of `var` is a*b - a*b = 0
+                if not new:
+                    if const > 0:
+                        return True
+                    continue
+                if new not in rest or const > rest[new]:
+                    rest[new] = const
+        rows = rest
+        if len(rows) > _MAX_ROWS:
+            return False
+    return False
+
+
+def _entailed(atom: Term, ctx: _Ctx) -> Optional[bool]:
+    """True/False if the facts of `ctx` decide the comparison `atom` (`<`, `<=`, `==` of linear integer terms)."""
+    if not (isinstance(atom, Func) and atom.function.name in ("FLt", "FLte", "FEq") and len(atom.args) == 2):
+        return None
+    if_false, if_true = _alternatives(atom, False), _alternatives(atom, True)
+    if if_false is None or if_true is None:
+        return None
+    facts = _facts_near(ctx, _free_vars(atom))
+    if all(_infeasible(facts + alt) for alt in if_false):
+        return True  # the facts and "not atom" contradict each other
+    if all(_infeasible(facts + alt) for alt in if_true):
+        return False
+    return None
+
+
 def _has_free_break(prog: Prog) -> bool:
     """A Break that targets the loop directly enclosing `prog` (an inner InfLoop captures its own)."""
     if isinstance(prog, Break):
@@ -1493,10 +1714,16 @@ def _dce(prog: Prog, ctx: _Ctx, inputs: set) -> Prog:
             if not ((isinstance(term, Var) and term.name == symbol)
                     or (isinstance(term, Const) and ctx.env.get(symbol) == frozenset([term])))
         ]  # an assignment that stores the value the variable already has does nothing
-        ctx.kill({symbol for symbol, _, _ in kept})
+        assigned = {symbol for symbol, _, _ in kept}
+        ctx.kill(assigned)
         for symbol, _, _ in kept:
             if stored[symbol] is not None and 0 < len(stored[symbol]) <= _MAX_VALUES:
                 ctx.env[symbol] = stored[symbol]
+        for symbol, sort, term in kept:
+            # `symbol == term` holds afterwards if no variable of `term` was changed by this same assignment
+            lin = _lin(term)
+            if isinstance(sort, SInt) and lin is not None and lin[0] and not (_free_vars(term) & assigned):
+                ctx.true.append(make_func("FEq", [Var(symbol, sort), term]))
         return PAssign(kept) if kept else Sequence([])
 
     if isinstance(prog, Declare):
@@ -1675,6 +1902,7 @@ def _drop_dead_locals(prog: Prog) -> Prog:
 
 def eliminate_dead_code(prog: Prog) -> Prog:
     """Dead-code elimination (see above), repeated until nothing changes."""
+    _CONSTRAINT_CACHE.clear()
     for _ in range(10):
         prog1 = _drop_dead_locals(prog)
         inputs = _vars_used(prog1) - _effects(prog1)[0]
