@@ -59,6 +59,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 OPTIMIZER = "optimizer_simple_egglog.py"
+FALLBACK_STEPS = 6  # reads covered by the cheap second SMT attempt (check_smt)
 
 ORIGINAL_MARKER = re.compile(r"(?im)^\s*={3,}\s*ORIGINAL\s+C\s+PROGRAM\s*={3,}\s*$")
 RESULT_MARKER = re.compile(r"(?im)^\s*(Unrealizable|Realizable)\s*$")
@@ -137,6 +138,23 @@ def run_group(cmd, cwd, timeout):
     return proc.returncode, out, err, timed_out, None
 
 
+def describe_exit(rc):
+    if rc is None:
+        return "could not be started"
+    if rc < 0:
+        try:
+            name = signal.Signals(-rc).name
+        except ValueError:
+            name = f"signal {-rc}"
+        return f"killed by {name} (return code {rc})"
+    return f"exit code {rc}"
+
+
+def last_line(text):
+    lines = [l.strip() for l in (text or "").splitlines() if l.strip()]
+    return lines[-1] if lines else ""
+
+
 # ----------------------------------------------------------------------------------------------
 # reading Issy's output
 # ----------------------------------------------------------------------------------------------
@@ -210,28 +228,42 @@ def make_diff(original, optimized, spec_name):
 def check_smt(case_dir, tools, timeout):
     """Z3 translation validation, tests/equiv_check.py --pair ast.json ast_optimized.json.
     -> (verdict, detail, seconds); verdict in PROVED_ALL, PROVED_BOUNDED, DIFFERENT, INCONCLUSIVE,
-    TIMEOUT, ERROR, NO_AST."""
+    TIMEOUT, ERROR, NO_AST.
+
+    Large programs often exhaust the time of the full check (20 reads and a proof for all lengths). Then a
+    second, cheap attempt proves equivalence only for input sequences of up to FALLBACK_STEPS reads, which is
+    still worth more than no answer (the verdict is PROVED_BOUNDED and the detail says so)."""
     a, b = case_dir / "ast.json", case_dir / "ast_optimized.json"
     if not (a.is_file() and b.is_file()):
         return "NO_AST", "ast.json or ast_optimized.json is missing", 0.0
     start = time.monotonic()
-    cmd = [sys.executable, str(tools / "equiv_check.py"), "--pair", "ast.json", "ast_optimized.json",
-           "--budget", str(max(10, timeout - 30))]
-    rc, out, err, timed_out, error = run_group(cmd, case_dir, timeout)
+    log = []
+
+    def attempt(extra, limit):
+        cmd = [sys.executable, str(tools / "equiv_check.py"), "--pair", "ast.json", "ast_optimized.json",
+               "--budget", str(max(10, limit - 30))] + extra
+        rc, out, err, timed_out, error = run_group(cmd, case_dir, limit)
+        log.append(f"$ {shlex.join(cmd)}\n\n{out}\n--- stderr ---\n{err}\n")
+        if error:
+            return "ERROR", error
+        if timed_out:
+            return "TIMEOUT", f"no verdict within {limit}s"
+        m = SMT_VERDICT.search(out)
+        if not m:
+            return "ERROR", tail(err or out)
+        kind = m.group(0)
+        verdict = ("PROVED_ALL" if kind.startswith("PROVED for") else
+                   "PROVED_BOUNDED" if kind.startswith("PROVED up") else kind)
+        return verdict, next((l for l in out.splitlines() if kind in l), kind).strip()
+
+    verdict, detail = attempt([], timeout)
+    if verdict in ("INCONCLUSIVE", "TIMEOUT"):
+        v2, d2 = attempt(["--steps", str(FALLBACK_STEPS), "--no-unbounded"], min(timeout, 120))
+        if v2 in ("PROVED_BOUNDED", "DIFFERENT"):
+            verdict, detail = v2, f"{d2}  [full check: {detail}]"
     secs = round(time.monotonic() - start, 3)
-    write_text(case_dir / "equivalence_smt.txt", f"$ {shlex.join(cmd)}\n\n{out}\n--- stderr ---\n{err}\n")
-    if error:
-        return "ERROR", error, secs
-    if timed_out:
-        return "TIMEOUT", f"no verdict within {timeout}s", secs
-    m = SMT_VERDICT.search(out)
-    if not m:
-        return "ERROR", tail(err or out), secs
-    kind = m.group(0)
-    verdict = ("PROVED_ALL" if kind.startswith("PROVED for") else
-               "PROVED_BOUNDED" if kind.startswith("PROVED up") else kind)
-    line = next((l for l in out.splitlines() if kind in l), kind)
-    return verdict, line.strip(), secs
+    write_text(case_dir / "equivalence_smt.txt", "\n".join(log))
+    return verdict, detail, secs
 
 
 def check_c(case_dir, tools, timeout):
@@ -399,7 +431,8 @@ def run_case(spec_path, spec_dir, output_root, issy_dir, options, timeout, resum
         status = "error"
         if "Traceback (most recent call last)" in stderr or OPTIMIZER in stderr:
             status = "optimizer_error"  # Issy synthesized a program, the Python optimizer failed
-        error = error or tail(stderr)
+        if not error:
+            error = describe_exit(return_code) + (f": {last_line(stderr)}" if last_line(stderr) else ", no output")
     elif verdict == "Unrealizable":
         status = "unrealizable"  # No program pair expected.
     elif verdict != "Realizable":
@@ -614,6 +647,18 @@ def main():
                 parser.error(f"{f} not found in {tools} (needed for --verify)")
         if not python_can_import("z3"):
             parser.error("python3 cannot import 'z3' (needed for --verify): pip3 install z3-solver")
+    # Smoke test: a binary that cannot start (wrong CPU, missing library, macOS code signature) would
+    # otherwise fail the same way on every one of the specifications.
+    rc, out, err, timed_out, error = run_group([str(binary), "--help"], issy_dir, 60)
+    if error or timed_out or rc is None or rc < 0:
+        why = error or ("did not answer within 60 s" if timed_out else describe_exit(rc))
+        hint = ""
+        if platform.system() == "Darwin":
+            hint = (f"\nOn macOS this usually means the binary was copied from another Mac or downloaded, and the "
+                    f"system refuses to start it. Build it on this Mac (`make` in {issy_dir}), or try\n"
+                    f"  xattr -cr {binary} && codesign --force --sign - {binary}\n"
+                    f"and check that `{binary} --help` prints a help text.")
+        parser.error(f"`{binary} --help` {why}.{hint}")
     specs = sorted(p for p in spec_dir.rglob("*.issy") if p.is_file() and p.name.startswith(args.prefix))
     if args.limit:
         specs = specs[:args.limit]
