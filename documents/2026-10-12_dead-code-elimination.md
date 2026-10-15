@@ -6,6 +6,9 @@ version, which only had three syntactic rules)
 **Updated 2026-10-15:** ranges and relations between variables (rule R9 in section 2); results and tests in
 section 5, code in section 7, sources in section 8.
 
+**Updated 2026-10-15 (pipeline order):** the pass now also runs before the `ite` lowering (end of section 2;
+results in section 5).
+
 ## 1. The general idea
 
 Two different things are called "dead code" in compilers:
@@ -120,6 +123,16 @@ point (an over-approximation, as in abstract interpretation). Every rule keeps t
   no variable of `t` is changed by the same (parallel) assignment, and it is removed like every other fact
   when a variable in it changes. When the limits are exceeded nothing is concluded.
 
+**Where it runs.** `optimize_ast_with_egglog` calls the pass twice: on the program after the Egglog term
+simplification, `ite` terms still in place, and again after the `ite` lowering. The lowering turns an assignment with an
+`ite` into a declaration and two guarded assignments (section 4) and makes the programs of the batch about 50% longer
+(27,412 to 41,077 lines on the 25 specs), so the first call removes dead code before that happens. The pass needs
+nothing special for it: R1 folds `ite`, `env` takes the values of an `ite` of constants, and R9 ignores terms that are
+not linear. The second call adds little: without it the 25 specs come out at 6,086 lines instead of 6,074 and 8 of the
+programs differ; it is kept because it costs little time and the lowering creates new guards and temporaries. The reason
+for the gain of the first call was not isolated by a separate experiment; the measurement is in section 5. Both calls use
+the same pass, and the argument of section 3 does not depend on where it is called.
+
 Assumptions (check them if the language of Issy's programs grows):
 
 1. Guard terms have no side effects and cannot fail (no division by zero). True for `+`, `*`, comparisons,
@@ -168,7 +181,8 @@ Assumptions (check them if the language of Issy's programs grows):
 - The `ite` lowering (`sound_lower`) turns `x := ite(c, a, b)` into a declaration and two guarded
   assignments. This makes specs with `ite` terms longer (see section 5). The C printer can print `?:`
   directly, so the lowering is not needed for correctness; whether to keep it is a design decision for
-  the thesis.
+  the thesis. Since 2026-10-15 the pass also runs before the lowering (section 2), which removes most of
+  the growth: the 25 specs of the batch come out at 6,074 lines instead of 10,491 (section 5).
 - Applying the whole pipeline twice can still change terms (Egglog rewrites a negated conjunction into
   a disjunction in the second round). `eliminate_dead_code` alone is idempotent (checked on 18000 random
   programs).
@@ -267,6 +281,38 @@ path (section 4 gives the two typical reasons).
 - The ten specifications of this repository (table above), `python3 tests/e2e.py --exhaustive --prove` with the stand-in
   printer instead of `issy`: 71 of 71 checks passed (same observations in all scenarios and for every input sequence up to
   the depth bound; Z3 proves all ten for all lengths, 0.0 to 2.2 s). `--self-test` was not repeated for R9.
+
+**Pipeline order: the pass also before the `ite` lowering (2026-10-15).** The pass with R9 runs after the Egglog step and
+again after the lowering (section 2). The 25 specifications of the batch, one call (after the lowering) against two
+calls (before and after):
+
+| Measure | After the lowering only | Before and after | Change |
+|---|---|---|---|
+| Lines of C | 10,491 | 6,074 | -4,417 (-42.1%) |
+| Statements | 7,123 | 4,025 | -3,098 (-43.5%) |
+| Term nodes | 35,133 | 19,083 | -16,050 (-45.7%) |
+| `if` statements | 2,239 | 1,233 | -1,006 (-44.9%) |
+| `abort()` | 150 | 76 | -74 (-49.3%) |
+| Loops | 182 | 126 | -56 (-30.8%) |
+| `prog_counter` references | 753 | 367 | -386 (-51.3%) |
+
+Against the pass before R9 (10,700 lines, 155 `abort()`) this is -43.2% lines. 21 of the 25 programs get shorter, 4 stay
+equal (`test-09`, `test-extract-input`, `test-extract-lemma`, `two-loc-inp-real`), none gets longer. The largest changes:
+`cav25-heim-test-11` 2,530 -> 946 lines (`abort()` 43 -> 13), `cav25-heim-test-02` 1,086 -> 444,
+`tacas26-heim-buchi` 833 -> 297, `tacas26-heim-buchi-simple` 829 -> 293, `cav25-heim-test-12` 537 -> 177. The lowering and
+the pass(es) take 5.5 s for the 25 specs with two calls and 6.6 s with one (the second call sees a smaller program).
+The same change measured on 2026-10-14 with the pass before R9 gave 6,447 lines.
+
+Tests for the new order (2026-10-15):
+
+- `python3 tests/dce_fuzz.py pipeline 600`: the whole optimizer on 600 random programs, 0 differ (size 13,698 -> 7,923);
+  the legacy pipeline differed on 17 of 150. `python3 tests/dce_fuzz.py real 4000`: 0 differ, 0 not idempotent.
+- Replay of the AST from random start states, 25 specs x 300 runs: 7,500 runs, 0 differ.
+- Exhaustive comparison of the C programs (section 6): 25 of 25 identical, 3,484,910 input sequences.
+- Z3 equivalence (protocol of section 6): 18 proved for all lengths, 7 up to 6 reads, 0 different, 0 inconclusive.
+- The ten specifications of this repository, `python3 tests/e2e.py --exhaustive --prove` with the stand-in printer:
+  71 of 71 checks passed, Z3 proves all ten for all lengths; the table above does not change (same never-executed
+  and statement counts).
 
 ## 6. Proving that the optimized program is equivalent (2026-10-13)
 
@@ -426,7 +472,7 @@ The second call does not run Issy again; it adds the checks of 6.1 to every fini
 | `_dce_loop` (R6) | `1786` |
 | dead locals (R8): `_declared` ... `_drop_dead_locals` | `1832` ... `1881` |
 | `eliminate_dead_code` (driver) | `1903` |
-| pipeline that calls it | `optimize_ast_with_egglog`, `1923` |
+| pipeline that calls it (twice: before and after the `ite` lowering) | `optimize_ast_with_egglog`, `1923` |
 
 Tests: `tests/e2e.py`, `tests/dce_fuzz.py` (modes `real`, `pipeline`, `oracle`, `mutants`), `tests/batch_issy.py` (many specifications, 6.4), and for section 6 `tests/equiv_check.py` (`CFG`, `segment`, `verify`,
 `prove_unbounded`, `self_test`) and `tests/c_exhaustive.py` (`driver`, `compare`, `ast_to_c`).

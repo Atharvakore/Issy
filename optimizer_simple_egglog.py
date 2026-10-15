@@ -1925,14 +1925,19 @@ def optimize_ast_with_egglog(prog: Prog) -> Prog:
     Full pipeline:
 
     1. Use Egglog to simplify expression terms.
-    2. Lower expression-level FIte assignments soundly (fresh temporaries, one parallel assignment).
+    2. Eliminate dead code (eliminate_dead_code: unreachable branches, no-op assignments, code after
+       jumps, unused locals) on the program as it is, FIte terms included. This runs before the lowering
+       (which makes programs about 50% longer on the batch) so that less code reaches it.
     3. Clean trivial program structure such as Cond(True), Cond(False), and empty Sequence.
-    4. Eliminate dead code (eliminate_dead_code: unreachable branches, no-op assignments, code after
-       jumps, unused locals).
+    4. Lower expression-level FIte assignments soundly (fresh temporaries, one parallel assignment).
     5. Clean up again.
+    6. Eliminate dead code again: the lowering creates guards and temporaries that the pass can decide.
+    7. Clean up again.
     """
     optimized_terms = optimize_prog_terms_with_egglog(prog)
-    lowered_ites = sound_lower(optimized_terms)
+    pre_pruned = eliminate_dead_code(optimized_terms)
+    pre_cleaned = optimize_prog_structure(pre_pruned)
+    lowered_ites = sound_lower(pre_cleaned)
     cleaned = optimize_prog_structure(lowered_ites)
     pruned = eliminate_dead_code(cleaned)
     return optimize_prog_structure(pruned)
