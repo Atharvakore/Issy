@@ -1,0 +1,48 @@
+# Specifications of the Heim/Bloem benchmarks that Issy finished within the 300 s limit
+# (batch run started 2026-10-15, tests/batch_issy.py --jobs 4 --timeout 300; 40 of 144).
+# One name per line; '#' starts a comment; the seconds are the time of that run.
+# Use:  python3 tests/run_finished_specs.py      (or  tests/batch_issy.py --only tests/finished_specs.txt ...)
+
+# --- realizable: Issy returns a program, the optimizer runs on it (25)
+cav25-heim-test-extract-input                    #     0.3 s
+cav25-heim-two-loc-real-1                        #     0.5 s
+cav25-heim-two-loc-real-2                        #     0.7 s
+cav25-heim-test-extract-lemma                    #     0.8 s
+cav25-heim-two-loc-inp-real                      #     1.1 s
+cav25-heim-test-09                               #     1.7 s
+tacas26-heim-verification-ex-2-05                #     2.0 s
+cav25-heim-balance-add-rem-8-1-16                #     2.6 s
+tacas26-heim-equal-mod2-real                     #     3.2 s
+cav25-heim-test-13                               #     3.9 s
+tacas26-heim-nondet-exit-swap                    #     4.4 s
+tacas26-heim-verification-ex-4-06                #     4.4 s
+cav25-heim-test-05                               #     8.0 s
+cav25-heim-parity-two-vars-real                  #     9.9 s
+cav25-heim-two-vars-real                         #     9.9 s
+cav25-heim-test-12                               #    16.1 s
+tacas26-heim-inequality-assumption               #    18.6 s
+tacas26-heim-fault-tolerance                     #    20.2 s
+tacas26-heim-buchi-simple                        #    21.1 s
+cav25-heim-test-02                               #    41.9 s
+tacas26-heim-service-2                           #    46.4 s
+tacas26-heim-buchi                               #    47.3 s
+tacas26-heim-ranking-choice-2                    #    49.1 s
+cav25-heim-test-08                               #    67.9 s
+cav25-heim-test-11                               #    92.1 s
+
+# --- unrealizable: Issy proves there is no program, nothing to optimize (15)
+cav25-heim-test-06                               #     0.1 s
+cav25-heim-fig7                                  #     0.3 s
+cav25-heim-parity-two-vars-unreal-2              #     0.4 s
+cav25-heim-two-loc-inp-unreal-0                  #     0.5 s
+cav25-heim-two-loc-inp-unreal-1                  #     0.5 s
+cav25-heim-fig7-gt1                              #     0.7 s
+cav25-heim-test-10                               #     0.7 s
+cav25-heim-two-vars-unreal                       #     0.8 s
+cav25-heim-parity-two-vars-unreal-1              #     2.4 s
+cav25-heim-parity-two-vars-unreal-0              #     2.7 s
+cav25-heim-test-01                               #     3.7 s
+tacas26-heim-prioritized-tasks-unreal-100        #     5.3 s
+cav25-heim-balance-add-rem-8-1-7                 #    22.1 s
+cav25-heim-balance-add-rem-8-2-16                #   147.5 s
+cav25-heim-balance-add-rem-2-2-8                 #   233.7 s

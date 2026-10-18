@@ -11,7 +11,7 @@ For every specification a folder  <out-dir>/cases/<spec>/  is written:
     ast.json              the program as Issy hands it to the optimizer
     ast_optimized.json    the program the optimizer returns
     stdout.txt, stderr.txt, metadata.json
-    ai_review.md          one self-contained file for an AI (or a person): spec, both programs, diff,
+    ai_review.md          one self-contained file for a reviewer: spec, both programs, diff,
                           machine-checked verdicts and the questions to answer
     equivalence_smt.txt   (with --verify) Z3 translation validation of ast.json against ast_optimized.json
     equivalence_c.txt     (with --verify) exhaustive run of original.c and optimized.c on all inputs sequences
@@ -26,6 +26,11 @@ Typical use (from the root of the Issy repository, after `make` and `pip3 instal
           --jobs 4 --timeout 300                      # 1. synthesize and optimize everything
   python3 tests/batch_issy.py --spec-dir ../benchmarks/benchmarks --out-dir ../issy-batch \\
           --jobs 4 --timeout 300 --resume --verify    # 2. add the equivalence checks, nothing is re-run
+
+Only some specifications (--only): a list file restricts the run, so that the specifications Issy cannot
+solve within the time limit are not started again. tests/finished_specs.txt lists the 40 of the 144
+benchmarks that finished within 300 s (25 with a program, 15 unrealizable);
+tests/run_finished_specs.py runs exactly these.
 
 Why each case runs in its own folder: Issy writes ast.json and ast_optimized.json into its current
 directory and starts `python3 optimizer_simple_egglog.py` by that relative name (Synthesis.hs,
@@ -603,6 +608,39 @@ def python_can_import(module):
     return r.returncode == 0
 
 
+def read_name_list(path):
+    """Names from a list file: one per line, .issy optional, '#' starts a comment."""
+    names = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        name = line.split("#", 1)[0].strip()
+        if name:
+            names.append(name if name.endswith(".issy") else name + ".issy")
+    return names
+
+
+def select_only(specs, list_file, parser):
+    """Keep the specs named in list_file. A listed name that matches no spec (or several) is an error,
+    because silently running fewer specs than listed would make the result look complete."""
+    list_file = list_file.expanduser()
+    if not list_file.is_file():
+        parser.error(f"--only: {list_file} does not exist")
+    wanted = read_name_list(list_file)
+    if not wanted:
+        parser.error(f"--only: {list_file} lists no specifications")
+    by_name = {}
+    for p in specs:
+        by_name.setdefault(p.name, []).append(p)
+    missing = [n for n in wanted if n not in by_name]
+    ambiguous = [n for n in wanted if len(by_name.get(n, [])) > 1]
+    if missing:
+        parser.error(f"--only: {len(missing)} of {len(wanted)} listed specs are not in --spec-dir "
+                     f"(or excluded by --prefix): {', '.join(missing[:8])}{' ...' if len(missing) > 8 else ''}")
+    if ambiguous:
+        parser.error(f"--only: name exists more than once under --spec-dir: {', '.join(ambiguous[:8])}")
+    chosen = {by_name[n][0] for n in wanted}
+    return [p for p in specs if p in chosen]
+
+
 # ----------------------------------------------------------------------------------------------
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -614,6 +652,10 @@ def main():
     parser.add_argument("--timeout", type=int, default=1200, help="Seconds per benchmark for Issy (default 1200 = 20 min)")
     parser.add_argument("--limit", type=int, help="Run only first N specs (smoke test)")
     parser.add_argument("--prefix", default="", help="Only files whose name starts with this, e.g., cav25-heim-")
+    parser.add_argument("--only", type=Path, metavar="FILE",
+                        help="Only the specs named in FILE: one name per line, with or without .issy; blank lines and "
+                             "text after # are ignored. A name that is not in --spec-dir is an error "
+                             "(tests/finished_specs.txt lists the specs that finished within 300 s)")
     parser.add_argument("--resume", action="store_true",
                         help="Skip pair_ready/unrealizable cases if the spec has not changed; retry failures. "
                              "With --verify the missing equivalence checks are added without re-running Issy.")
@@ -660,6 +702,8 @@ def main():
                     f"and check that `{binary} --help` prints a help text.")
         parser.error(f"`{binary} --help` {why}.{hint}")
     specs = sorted(p for p in spec_dir.rglob("*.issy") if p.is_file() and p.name.startswith(args.prefix))
+    if args.only:
+        specs = select_only(specs, args.only, parser)
     if args.limit:
         specs = specs[:args.limit]
     if not specs:

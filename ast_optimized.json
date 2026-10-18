@@ -426,68 +426,6 @@
                                             }
                                           ]
                                         ]
-                                      },
-                                      {
-                                        "tag": "Func",
-                                        "contents": [
-                                          {
-                                            "tag": "FLte"
-                                          },
-                                          [
-                                            {
-                                              "tag": "Const",
-                                              "contents": {
-                                                "tag": "CInt",
-                                                "contents": 0
-                                              }
-                                            },
-                                            {
-                                              "tag": "Func",
-                                              "contents": [
-                                                {
-                                                  "tag": "FAdd"
-                                                },
-                                                [
-                                                  {
-                                                    "tag": "Var",
-                                                    "contents": [
-                                                      "init_x",
-                                                      {
-                                                        "tag": "SInt"
-                                                      }
-                                                    ]
-                                                  },
-                                                  {
-                                                    "tag": "Func",
-                                                    "contents": [
-                                                      {
-                                                        "tag": "FMul"
-                                                      },
-                                                      [
-                                                        {
-                                                          "tag": "Const",
-                                                          "contents": {
-                                                            "tag": "CInt",
-                                                            "contents": -1
-                                                          }
-                                                        },
-                                                        {
-                                                          "tag": "Var",
-                                                          "contents": [
-                                                            "x",
-                                                            {
-                                                              "tag": "SInt"
-                                                            }
-                                                          ]
-                                                        }
-                                                      ]
-                                                    ]
-                                                  }
-                                                ]
-                                              ]
-                                            }
-                                          ]
-                                        ]
                                       }
                                     ]
                                   ]
@@ -625,350 +563,40 @@
                                     ]
                                   },
                                   {
-                                    "tag": "Sequence",
+                                    "tag": "PAssign",
                                     "contents": [
-                                      {
-                                        "tag": "Cond",
-                                        "contents": [
-                                          {
-                                            "tag": "Func",
-                                            "contents": [
+                                      [
+                                        "ite_tmp_x_0",
+                                        {
+                                          "tag": "SInt"
+                                        },
+                                        {
+                                          "tag": "Func",
+                                          "contents": [
+                                            {
+                                              "tag": "FAdd"
+                                            },
+                                            [
                                               {
-                                                "tag": "FAnd"
+                                                "tag": "Const",
+                                                "contents": {
+                                                  "tag": "CInt",
+                                                  "contents": -1
+                                                }
                                               },
-                                              [
-                                                {
-                                                  "tag": "Func",
-                                                  "contents": [
-                                                    {
-                                                      "tag": "FLte"
-                                                    },
-                                                    [
-                                                      {
-                                                        "tag": "Const",
-                                                        "contents": {
-                                                          "tag": "CInt",
-                                                          "contents": 1
-                                                        }
-                                                      },
-                                                      {
-                                                        "tag": "Var",
-                                                        "contents": [
-                                                          "x",
-                                                          {
-                                                            "tag": "SInt"
-                                                          }
-                                                        ]
-                                                      }
-                                                    ]
-                                                  ]
-                                                },
-                                                {
-                                                  "tag": "Func",
-                                                  "contents": [
-                                                    {
-                                                      "tag": "FLt"
-                                                    },
-                                                    [
-                                                      {
-                                                        "tag": "Var",
-                                                        "contents": [
-                                                          "x",
-                                                          {
-                                                            "tag": "SInt"
-                                                          }
-                                                        ]
-                                                      },
-                                                      {
-                                                        "tag": "Const",
-                                                        "contents": {
-                                                          "tag": "CInt",
-                                                          "contents": 10
-                                                        }
-                                                      }
-                                                    ]
-                                                  ]
-                                                },
-                                                {
-                                                  "tag": "Func",
-                                                  "contents": [
-                                                    {
-                                                      "tag": "FLte"
-                                                    },
-                                                    [
-                                                      {
-                                                        "tag": "Const",
-                                                        "contents": {
-                                                          "tag": "CInt",
-                                                          "contents": 2
-                                                        }
-                                                      },
-                                                      {
-                                                        "tag": "Func",
-                                                        "contents": [
-                                                          {
-                                                            "tag": "FAdd"
-                                                          },
-                                                          [
-                                                            {
-                                                              "tag": "Var",
-                                                              "contents": [
-                                                                "init_x",
-                                                                {
-                                                                  "tag": "SInt"
-                                                                }
-                                                              ]
-                                                            },
-                                                            {
-                                                              "tag": "Func",
-                                                              "contents": [
-                                                                {
-                                                                  "tag": "FMul"
-                                                                },
-                                                                [
-                                                                  {
-                                                                    "tag": "Const",
-                                                                    "contents": {
-                                                                      "tag": "CInt",
-                                                                      "contents": -1
-                                                                    }
-                                                                  },
-                                                                  {
-                                                                    "tag": "Var",
-                                                                    "contents": [
-                                                                      "x",
-                                                                      {
-                                                                        "tag": "SInt"
-                                                                      }
-                                                                    ]
-                                                                  }
-                                                                ]
-                                                              ]
-                                                            }
-                                                          ]
-                                                        ]
-                                                      }
-                                                    ]
-                                                  ]
-                                                }
-                                              ]
-                                            ]
-                                          },
-                                          {
-                                            "tag": "PAssign",
-                                            "contents": [
-                                              [
-                                                "ite_tmp_x_0",
-                                                {
-                                                  "tag": "SInt"
-                                                },
-                                                {
-                                                  "tag": "Func",
-                                                  "contents": [
-                                                    {
-                                                      "tag": "FAdd"
-                                                    },
-                                                    [
-                                                      {
-                                                        "tag": "Var",
-                                                        "contents": [
-                                                          "x",
-                                                          {
-                                                            "tag": "SInt"
-                                                          }
-                                                        ]
-                                                      },
-                                                      {
-                                                        "tag": "Const",
-                                                        "contents": {
-                                                          "tag": "CInt",
-                                                          "contents": 1
-                                                        }
-                                                      }
-                                                    ]
-                                                  ]
-                                                }
-                                              ]
-                                            ]
-                                          }
-                                        ]
-                                      },
-                                      {
-                                        "tag": "Cond",
-                                        "contents": [
-                                          {
-                                            "tag": "Func",
-                                            "contents": [
                                               {
-                                                "tag": "FNot"
-                                              },
-                                              [
-                                                {
-                                                  "tag": "Func",
-                                                  "contents": [
-                                                    {
-                                                      "tag": "FAnd"
-                                                    },
-                                                    [
-                                                      {
-                                                        "tag": "Func",
-                                                        "contents": [
-                                                          {
-                                                            "tag": "FLte"
-                                                          },
-                                                          [
-                                                            {
-                                                              "tag": "Const",
-                                                              "contents": {
-                                                                "tag": "CInt",
-                                                                "contents": 1
-                                                              }
-                                                            },
-                                                            {
-                                                              "tag": "Var",
-                                                              "contents": [
-                                                                "x",
-                                                                {
-                                                                  "tag": "SInt"
-                                                                }
-                                                              ]
-                                                            }
-                                                          ]
-                                                        ]
-                                                      },
-                                                      {
-                                                        "tag": "Func",
-                                                        "contents": [
-                                                          {
-                                                            "tag": "FLt"
-                                                          },
-                                                          [
-                                                            {
-                                                              "tag": "Var",
-                                                              "contents": [
-                                                                "x",
-                                                                {
-                                                                  "tag": "SInt"
-                                                                }
-                                                              ]
-                                                            },
-                                                            {
-                                                              "tag": "Const",
-                                                              "contents": {
-                                                                "tag": "CInt",
-                                                                "contents": 10
-                                                              }
-                                                            }
-                                                          ]
-                                                        ]
-                                                      },
-                                                      {
-                                                        "tag": "Func",
-                                                        "contents": [
-                                                          {
-                                                            "tag": "FLte"
-                                                          },
-                                                          [
-                                                            {
-                                                              "tag": "Const",
-                                                              "contents": {
-                                                                "tag": "CInt",
-                                                                "contents": 2
-                                                              }
-                                                            },
-                                                            {
-                                                              "tag": "Func",
-                                                              "contents": [
-                                                                {
-                                                                  "tag": "FAdd"
-                                                                },
-                                                                [
-                                                                  {
-                                                                    "tag": "Var",
-                                                                    "contents": [
-                                                                      "init_x",
-                                                                      {
-                                                                        "tag": "SInt"
-                                                                      }
-                                                                    ]
-                                                                  },
-                                                                  {
-                                                                    "tag": "Func",
-                                                                    "contents": [
-                                                                      {
-                                                                        "tag": "FMul"
-                                                                      },
-                                                                      [
-                                                                        {
-                                                                          "tag": "Const",
-                                                                          "contents": {
-                                                                            "tag": "CInt",
-                                                                            "contents": -1
-                                                                          }
-                                                                        },
-                                                                        {
-                                                                          "tag": "Var",
-                                                                          "contents": [
-                                                                            "x",
-                                                                            {
-                                                                              "tag": "SInt"
-                                                                            }
-                                                                          ]
-                                                                        }
-                                                                      ]
-                                                                    ]
-                                                                  }
-                                                                ]
-                                                              ]
-                                                            }
-                                                          ]
-                                                        ]
-                                                      }
-                                                    ]
-                                                  ]
-                                                }
-                                              ]
+                                                "tag": "Var",
+                                                "contents": [
+                                                  "x",
+                                                  {
+                                                    "tag": "SInt"
+                                                  }
+                                                ]
+                                              }
                                             ]
-                                          },
-                                          {
-                                            "tag": "PAssign",
-                                            "contents": [
-                                              [
-                                                "ite_tmp_x_0",
-                                                {
-                                                  "tag": "SInt"
-                                                },
-                                                {
-                                                  "tag": "Func",
-                                                  "contents": [
-                                                    {
-                                                      "tag": "FAdd"
-                                                    },
-                                                    [
-                                                      {
-                                                        "tag": "Const",
-                                                        "contents": {
-                                                          "tag": "CInt",
-                                                          "contents": -1
-                                                        }
-                                                      },
-                                                      {
-                                                        "tag": "Var",
-                                                        "contents": [
-                                                          "x",
-                                                          {
-                                                            "tag": "SInt"
-                                                          }
-                                                        ]
-                                                      }
-                                                    ]
-                                                  ]
-                                                }
-                                              ]
-                                            ]
-                                          }
-                                        ]
-                                      }
+                                          ]
+                                        }
+                                      ]
                                     ]
                                   }
                                 ]
