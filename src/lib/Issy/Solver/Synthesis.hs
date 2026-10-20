@@ -55,7 +55,7 @@ import qualified Issy.Printers.SMTLib as SMTLib
 import Issy.Solver.GameInterface
 
 import GHC.Generics (Generic)
-import Data.Aeson (ToJSON, FromJSON, encodeFile, eitherDecodeFileStrict)
+import Data.Aeson (ToJSON, FromJSON, encodeFile, eitherDecodeFileStrict, object, (.=))
 import System.Process (callProcess)
 ---------------------------------------------------------------------------------------------------
 -- Bookkeeping
@@ -293,6 +293,8 @@ assign var sort term = PAssign [(var, sort, term)]
 generateCProg :: Config -> Loc -> SyBo -> IO String
 generateCProg conf init sybo = do
     (vars, prog) <- extractProg conf init sybo
+    
+    outJSONOriginal vars prog "original.json"
 
     let originalC = printCProg vars prog
 
@@ -513,4 +515,13 @@ printTerm =
         [] -> error "assert: found empty function"
         x:xr -> "(" ++ printTerm x ++ " " ++ concatMap (\y -> (op ++ " ") ++ printTerm y) xr ++ ")"
 ---------------------------------------------------------------------------------------------------
-
+outJSONOriginal :: Variables -> Prog -> FilePath -> IO ()
+outJSONOriginal vars prog filePath =
+  encodeFile filePath
+    $ object
+        [ "inputs" .= map varEntry (Vars.inputL vars)
+        , "stateVars" .= map varEntry (Vars.stateVarL vars)
+        , "prog" .= prog
+        ]
+  where
+    varEntry v = object ["name" .= v, "sort" .= Vars.sortOf vars v]
