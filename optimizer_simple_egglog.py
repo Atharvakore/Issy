@@ -950,6 +950,8 @@ def optimize_prog_structure(prog: Prog) -> Prog:
 # ============================================================
 # 11. Lower expression-level FIte assignments into guarded commands
 # ============================================================
+# NOTE (2026-10-23): this lowering is no longer part of optimize_ast_with_egglog. FIte terms are kept and the
+# C printer prints them as `c ? a : b`
 
 def negate_term(term: Term) -> Term:
     """
@@ -1053,6 +1055,9 @@ def lower_ite_assignments_in_prog(prog: Prog) -> Prog:
 # ============================================================
 # 11b. Sound lowering of FIte / parallel assignment  (replaces section 11)
 # ============================================================
+# NOTE (2026-10-23): this lowering is no longer part of optimize_ast_with_egglog. FIte terms are kept and the
+# C printer prints them as `c ? a : b`. The code below is used only by optimize_ast_with_egglog_legacy
+# (regression tests). See documents/2026-10-23_remove-ite-lowering.md.
 
 def _has_ite(term: Term) -> bool:
     return isinstance(term, Func) and (
@@ -1926,20 +1931,14 @@ def optimize_ast_with_egglog(prog: Prog) -> Prog:
 
     1. Use Egglog to simplify expression terms.
     2. Eliminate dead code (eliminate_dead_code: unreachable branches, no-op assignments, code after
-       jumps, unused locals) on the program as it is, FIte terms included. This runs before the lowering
-       (which makes programs about 50% longer on the batch) so that less code reaches it.
+       jumps, unused locals) on the program as it is, FIte terms included.
     3. Clean trivial program structure such as Cond(True), Cond(False), and empty Sequence.
-    4. Lower expression-level FIte assignments soundly (fresh temporaries, one parallel assignment).
-    5. Clean up again.
-    6. Eliminate dead code again: the lowering creates guards and temporaries that the pass can decide.
-    7. Clean up again.
+
+    FIte terms are kept as they are (the C printer prints them as `c ? a : b`); they are not lowered into
+    guarded commands any more (documents/2026-10-23_remove-ite-lowering.md).
     """
     optimized_terms = optimize_prog_terms_with_egglog(prog)
-    pre_pruned = eliminate_dead_code(optimized_terms)
-    pre_cleaned = optimize_prog_structure(pre_pruned)
-    lowered_ites = sound_lower(pre_cleaned)
-    cleaned = optimize_prog_structure(lowered_ites)
-    pruned = eliminate_dead_code(cleaned)
+    pruned = eliminate_dead_code(optimized_terms)
     return optimize_prog_structure(pruned)
 
 
