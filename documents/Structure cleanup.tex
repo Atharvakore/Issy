@@ -1,0 +1,152 @@
+\documentclass[10pt,a4paper]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage[margin=1.6cm]{geometry}
+\usepackage{xcolor}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{colortbl}
+\usepackage{makecell}
+\usepackage{enumitem}
+
+% ---------- colours ----------
+\definecolor{ink}{HTML}{1F2937}
+\definecolor{accent}{HTML}{1D4ED8}
+\definecolor{muted}{HTML}{6B7280}
+\definecolor{headbg}{HTML}{F3F4F6}
+\definecolor{greenrow}{HTML}{DCFCE7}
+\definecolor{rulegray}{HTML}{D1D5DB}
+
+\AtBeginDocument{\color{ink}}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.3em}
+\renewcommand{\arraystretch}{1.1}
+\arrayrulecolor{rulegray}
+
+% ---------- helpers ----------
+\newcommand{\code}[1]{\texttt{#1}}
+\newcommand{\ind}{\hspace*{1.2em}}
+\newcommand{\head}[1]{\vspace{0.6em}{\large\bfseries\color{accent}#1}\par\vspace{0.2em}}
+\newcommand{\note}[1]{{\small\color{muted}#1}}
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+
+\begin{document}
+\pagestyle{empty}
+
+{\LARGE\bfseries Structure cleanup: the 5 rules}\par
+\vspace{0.2em}
+{\color{muted}\code{optimize\_prog\_structure} in \code{optimizer\_simple\_egglog.py},
+lines 917--947 (branch dead-code-elimination). Every example below was run
+through the real function.}
+
+% ------------------------------------------------------------
+\head{What it does}
+
+A purely syntactic pass over the Prog tree. It works bottom-up: the body of
+every \textbf{Cond} and every element of a \textbf{Sequence} is cleaned first,
+then the rules are applied to the cleaned result. It looks at no variable
+values. The pipeline runs it three times (after the first dead-code pass,
+after the ite lowering, after the second dead-code pass, lines 1939, 1941,
+1943) and once per round inside the dead-code loop (line 1909).
+
+% ------------------------------------------------------------
+\head{The rules}
+
+\begingroup
+\small
+\noindent
+\begin{tabular}{@{}l L{3.3cm} L{3.7cm} L{3.2cm} L{3.1cm}@{}}
+\rowcolor{headbg}
+\textbf{\#} & \textbf{Rule} & \textbf{Before} & \textbf{After} & \textbf{Why it is safe} \\
+\midrule
+1 & A guard that is the constant \textbf{true} is replaced by its body
+  & \makecell[l]{\code{if (true) \{}\\\code{\ind y = 1;}\\\code{\}}}
+  & \code{y = 1;}
+  & The branch is always taken. \\
+\midrule
+2 & A guard that is the constant \textbf{false} removes the whole \textbf{if}
+  & \makecell[l]{\code{if (false) \{}\\\code{\ind y = 1;}\\\code{\}}}
+  & (nothing)
+  & The branch is never taken. \\
+\midrule
+3 & An \textbf{if} whose (cleaned) body is empty is removed
+  & \makecell[l]{\code{if (x < 0) \{}\\\code{\}}}
+  & (nothing)
+  & Evaluating a guard has no effect: terms are side-effect free. \\
+\midrule
+4 & A block inside a block is \textbf{flattened}
+  & \makecell[l]{\code{\{ a = 1;}\\\code{\ind \{ b = 2; c = 3; \}}\\\code{\ind d = 4; \}}}
+  & \makecell[l]{\code{\{ a = 1;}\\\code{\ind b = 2; c = 3;}\\\code{\ind d = 4; \}}}
+  & Sequencing is associative. \\
+\midrule
+5 & An \textbf{empty block} inside a block is dropped
+  & \makecell[l]{\code{\{ a = 1;}\\\code{\ind \{ \}}\\\code{\ind b = 2; \}}}
+  & \makecell[l]{\code{\{ a = 1;}\\\code{\ind b = 2; \}}}
+  & The empty block does nothing (it is the unit of sequencing). \\
+\bottomrule
+\end{tabular}
+\endgroup
+
+\vspace{0.3em}
+\note{Rule 5 is the same effect as rule 4: flattening an empty block already
+adds nothing to the list. The extra filter that drops empty blocks in the code
+never changed a result in 20,000 random programs.}
+
+% ------------------------------------------------------------
+\head{Worked example (the innermost part is cleaned first)}
+
+The inner guard becomes empty, so the guard above it becomes empty, and so on
+up the tree. The result is still a block with one statement: a one-element
+block is not unwrapped.
+
+\vspace{0.4em}
+\begingroup
+\small
+\noindent
+\begin{tabular}{@{}l l l@{}}
+\rowcolor{headbg}
+\textbf{Step} & \textbf{Rule} & \textbf{Program becomes} \\
+\midrule
+start & & \code{if (true) \{ if (x < 0) \{ if (false) \{ y = 1; \} \} z = 2; \}} \\
+\midrule
+1 & 2 & \code{if (true) \{ if (x < 0) \{ \} z = 2; \}} \\
+\midrule
+2 & 3 & \code{if (true) \{ \{ \} z = 2; \}} \\
+\midrule
+3 & 4 / 5 & \code{if (true) \{ z = 2; \}} \\
+\midrule
+\rowcolor{greenrow}
+4 & 1 & \code{\{ z = 2; \}} \\
+\bottomrule
+\end{tabular}
+\endgroup
+
+% ------------------------------------------------------------
+\head{What it leaves alone}
+
+\begin{itemize}[leftmargin=1.2em,itemsep=0.2em,topsep=0.2em,label=\textbullet]
+  \item \textbf{Empty infinite loops} stay: \code{loop \{ \}} never reads and
+        never ends, so removing it would change the behaviour.
+  \item \textbf{One-element blocks} are not unwrapped, and an assignment with
+        an empty list is not removed.
+  \item \textbf{Non-constant guards} are never decided here. Terms like
+        \code{x < x} are simplified by Egglog (rule \#75), and guards decided
+        by known values are handled by the dead-code rule R2.
+\end{itemize}
+
+% ------------------------------------------------------------
+\head{Checks and meaning}
+
+\begin{itemize}[leftmargin=1.2em,itemsep=0.2em,topsep=0.2em,label=\textbullet]
+  \item Running the pass twice gives the same result as running it once
+        (5,000 random programs).
+  \item All five rules change only \textbf{internal steps}, never what the
+        environment sees at a Read and never how the program ends: in the
+        model of \code{Prog.v} they are equivalences up to internal steps
+        (weak bisimulation). That statement is argued here, \textbf{not yet
+        proved in Coq}; the Coq proof so far covers only the Egglog stage.
+\end{itemize}
+
+\end{document}

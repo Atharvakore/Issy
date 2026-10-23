@@ -27,8 +27,8 @@ Usage:
     python3 tests/c_exhaustive.py --ast PROGRAM.json ...            # optimize each AST with the repository's
                                                                     # optimizer, print both as C (a copy of the
                                                                     # printer in Synthesis.hs) and compare
-    python3 tests/c_exhaustive.py --negative PROGRAM.json ...       # the comparison must also FAIL for the old,
-                                                                    # unsound optimizer and for damaged programs
+    python3 tests/c_exhaustive.py --negative PROGRAM.json ...       # the comparison must also FAIL for damaged
+                                                                    # copies of the optimized program
     options: --depth K  --domain -2,-1,0,1,2  --max-runs N
 e2e.py --exhaustive runs the same comparison on the C programs that ./issy prints.
 """
@@ -294,7 +294,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("files", nargs="+")
     ap.add_argument("--ast", action="store_true", help="the files are ASTs (ast.json format)")
-    ap.add_argument("--negative", action="store_true", help="ASTs; also compare the old optimizer and damaged programs")
+    ap.add_argument("--negative", action="store_true", help="ASTs; also compare damaged copies of the optimized program")
     ap.add_argument("--depth", type=int)
     ap.add_argument("--domain", help="comma separated integer values, e.g. -2,-1,0,1,2")
     ap.add_argument("--max-runs", type=int, default=300_000)
@@ -322,10 +322,6 @@ def main():
             print(f"{'OK  ' if ok else 'FAIL'} {name:22s} optimizer     {detail}", flush=True)
             failures += not ok
             if args.negative:
-                old = E.optimize(ast, legacy=True)
-                o_c, q_c = pair_from_ast(ast, old)
-                ok2, d2 = compare(o_c, q_c, work, cc, domain, args.depth, args.max_runs)
-                print(f"{'found' if not ok2 else 'same '} {name:22s} old optimizer {d2[:200] if not ok2 else d2}", flush=True)
                 killed = alive = 0
                 for seed in range(args.mutants):
                     m, what = E.mutate(opt, seed)

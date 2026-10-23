@@ -6,8 +6,8 @@ Soundness check of the dead-code elimination in optimizer_simple_egglog.py (no I
                                             exactly what the original does (same values of all state and input
                                             variables at every Read, same way to end: finished / abort / cut off),
                                             and a second application must change nothing
-  python3 tests/dce_fuzz.py pipeline  [N]   the same for the whole optimizer (Egglog terms, FIte lowering,
-                                            dead-code elimination), and for the legacy pipeline for comparison
+  python3 tests/dce_fuzz.py pipeline  [N]   the same for the whole optimizer (Egglog terms, dead-code
+                                            elimination, structure cleanup)
   python3 tests/dce_fuzz.py oracle    [N]   N random fact sets and questions: whenever the linear reasoning of the pass
                                             (_entailed) answers yes or no, Z3 must agree that the facts imply it
   python3 tests/dce_fuzz.py mutants   [N [FIRST LAST]]
@@ -361,21 +361,17 @@ def oracle(n, seed0=0):
 
 
 def pipeline(n, seed0=0):
-    res = {}
-    for which, fn in (("new", M.optimize_ast_with_egglog), ("legacy", M.optimize_ast_with_egglog_legacy)):
-        bad = []; sz0 = sz1 = 0
-        count = n if which == "new" else max(50, n // 4)
-        for k in range(count):
-            r = random.Random(seed0 + k)
-            p = Gen(r, small=(k % 2 == 1), rel=(k % 4 >= 2)).top()
-            q = fn(p)
-            sz0 += size(p); sz1 += size(q)
-            if any(run(p, init, sd, keep=KEEPG) != run(q, init, sd, keep=KEEPG)
-                   for init in init_states(r, 2) for sd in range(2)):
-                bad.append(seed0 + k)
-        res[which] = (count, len(bad), bad[:5], sz0, sz1)
-        print(f"pipeline {which:6}: {count} programs, {len(bad)} behave differently {bad[:5]}, size {sz0} -> {sz1}", flush=True)
-    return res["new"][1] == 0
+    bad = []; sz0 = sz1 = 0
+    for k in range(n):
+        r = random.Random(seed0 + k)
+        p = Gen(r, small=(k % 2 == 1), rel=(k % 4 >= 2)).top()
+        q = M.optimize_ast_with_egglog(p)
+        sz0 += size(p); sz1 += size(q)
+        if any(run(p, init, sd, keep=KEEPG) != run(q, init, sd, keep=KEEPG)
+               for init in init_states(r, 2) for sd in range(2)):
+            bad.append(seed0 + k)
+    print(f"pipeline: {n} programs, {len(bad)} behave differently {bad[:5]}, size {sz0} -> {sz1}", flush=True)
+    return not bad
 
 
 if __name__ == "__main__":

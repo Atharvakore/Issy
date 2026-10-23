@@ -779,17 +779,13 @@ def _optimizer_module():
     return _OPT_MODULE[0]
 
 
-def optimize(ast, optimizer=None, legacy=False):
+def optimize(ast, optimizer=None):
     """The optimized copy of `ast`. By default the repository's optimizer_simple_egglog.py is imported and its
     pipeline run in this process (the same calls as its main()); with `optimizer` the given script is run as a
-    child process on an ast.json in a temporary directory, exactly as Synthesis.hs does. `legacy` selects the
-    original, unsound pipeline (only used by the self-test, to have programs that really are wrong)."""
+    child process on an ast.json in a temporary directory, exactly as Synthesis.hs does."""
     if optimizer is None:
         O = _optimizer_module()
-        pipeline = O.optimize_ast_with_egglog_legacy if legacy else O.optimize_ast_with_egglog
-        return O.prog_to_json(pipeline(O.parse_prog(json.loads(json.dumps(ast)))))
-    if legacy:
-        raise ValueError("legacy and a custom optimizer script cannot be combined")
+        return O.prog_to_json(O.optimize_ast_with_egglog(O.parse_prog(json.loads(json.dumps(ast)))))
     d = tempfile.mkdtemp(prefix="equiv-opt-")
     try:
         json.dump(ast, open(os.path.join(d, "ast.json"), "w"))
@@ -1134,11 +1130,9 @@ def mutants(args):
 def self_test(args):
     """A checker that cannot fail proves nothing, so it is tried on programs that ARE different and on programs
     that are equal, with the verdicts checked against the independent interpreter:
-      1. The first optimizer (unsound lowering of ite) on random programs: those it breaks must be reported
-         DIFFERENT, each with an input sequence that the interpreter confirms.
-      2. The current optimizer on the same programs: never DIFFERENT; the verdict must not be contradicted by
-         random runs.
-      3. Mutants of the current optimizer's output (one constant, operator, guard, statement, jump or
+      1. The optimizer on random programs: never DIFFERENT; the verdict must not be contradicted by random
+         runs.
+      2. Mutants of the optimizer's output (one constant, operator, guard, statement, jump or
          assignment changed) compared with the original program: DIFFERENT with a confirmed input sequence, or,
          when the mutation is harmless, no difference may exist in random runs or in a brute-force run over
          all input sequences (integers from -1..2) of up to 5 reads."""
@@ -1152,46 +1146,30 @@ def self_test(args):
         return verify(a, b, steps=steps, timeout=min(args.timeout, 10), unbounded=not args.no_unbounded,
                       unb_timeout=min(args.unbounded_timeout, 15), info=info, budget=min(args.budget, 60))
 
-    def confirmed(res):
-        return res.status == "DIFFERENT" and bool(res.ce and res.ce["replay"])
-
-    c1, c2, c3 = {}, {}, {}
+    c1, c3 = {}, {}
     survivors = killed = 0
     for seed in range(first, first + n):
         p = Gen(seed).program()
-        # 1. the unsound original optimizer
-        q = optimize(p, legacy=True)
-        info = Info(p, q)
-        r = run(p, q, info)
-        c1[r.status] = c1.get(r.status, 0) + 1
-        if r.status == "DIFFERENT" and not confirmed(r):
-            bad.append(f"seed {seed}: DIFFERENT but the interpreter sees no difference on the counterexample")
-        msg = cross_check(p, q, info, r, seed)
-        if msg:
-            bad.append(f"seed {seed} (first optimizer): {msg}")
-        # 2. the current optimizer
+        # 1. the optimizer
         q = optimize(p)
         info = Info(p, q)
         r = run(p, q, info)
-        c2[r.status] = c2.get(r.status, 0) + 1
+        c1[r.status] = c1.get(r.status, 0) + 1
         if r.status == "DIFFERENT":
-            bad.append(f"seed {seed}: the current optimizer's output is reported DIFFERENT: {r.text}")
+            bad.append(f"seed {seed}: the optimizer's output is reported DIFFERENT: {r.text}")
         msg = cross_check(p, q, info, r, seed)
         if msg:
-            bad.append(f"seed {seed} (current optimizer): {msg}")
-        # 3. mutants of the optimized program
+            bad.append(f"seed {seed} (optimizer): {msg}")
+        # 2. mutants of the optimized program
         k_, s_ = mutation_run(p, q, [seed * 10 + j for j in range(3)], run, bad, f"seed {seed}", c3)
         killed += k_
         survivors += s_
         if (seed - first + 1) % 10 == 0:
             print(f"  ... {seed - first + 1}/{n} programs, {time.time() - t0:.0f} s", flush=True)
-    print(f"1. first optimizer, {n} random programs (seeds {first}..{first + n - 1}): {c1}")
-    print(f"2. current optimizer, same programs:          {c2}")
-    print(f"3. mutants of the optimized programs:         {c3}  ({killed} rejected, {survivors} not rejected and not "
+    print(f"1. optimizer, {n} random programs (seeds {first}..{first + n - 1}): {c1}")
+    print(f"2. mutants of the optimized programs:         {c3}  ({killed} rejected, {survivors} not rejected and not "
           f"contradicted by random runs or by brute force)")
     if n >= 10:                                 # a few programs prove nothing about the rate
-        if c1.get("DIFFERENT", 0) < n // 5:
-            bad.append(f"only {c1.get('DIFFERENT', 0)} of {n} programs of the first optimizer rejected (expected at least {n // 5})")
         if not killed:
             bad.append("the checker rejected no mutant")
     for b in bad:
